@@ -103,6 +103,9 @@ class FitnessApp {
     init() {
         console.log('🚀 Fitness Board wird initialisiert...');
 
+        // Service Worker registrieren (PWA) - NEU!
+        this.registerServiceWorker();
+
         // Navigation Setup
         this.setupNavigation();
 
@@ -120,6 +123,57 @@ class FitnessApp {
 
         console.log('✅ Fitness Board bereit!');
     }
+
+
+    /**
+     * ========================================
+     * PWA - Service Worker
+     * ========================================
+     */
+
+    /**
+     * Service Worker registrieren
+     */
+    registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registriert:', registration.scope);
+
+                        // Update-Check
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Neue Version verfügbar
+                                    this.showUpdateNotification();
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('❌ Service Worker Registrierung fehlgeschlagen:', error);
+                    });
+            });
+        } else {
+            console.warn('⚠️ Service Worker wird nicht unterstützt');
+        }
+    }
+
+    /**
+     * Update-Benachrichtigung anzeigen
+     */
+    showUpdateNotification() {
+        if (this.eventBus) {
+            this.eventBus.emit('showToast', {
+                message: '🔄 Neue Version verfügbar! Seite neu laden?',
+                type: 'info',
+                duration: 10000
+            });
+        }
+    }
+
 
     /**
      * ========================================
