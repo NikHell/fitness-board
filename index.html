@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fitness Board</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="nav-brand">💪 Fitness Board</div>
+    <div class="nav-menu">
+        <button class="nav-btn active" data-view="workouts">Workouts</button>
+        <button class="nav-btn" data-view="training">Training</button>
+        <button class="nav-btn" data-view="timer">Timer</button>
+        <button class="nav-btn" data-view="stats">Statistiken</button>
+    </div>
+    <button class="settings-btn" id="settingsBtn">⚙️</button>
+</nav>
+
+<!-- Main Content -->
+<main class="container">
+    <!-- Workouts View -->
+    <div id="workouts-view" class="view active">
+        <div class="view-header">
+            <h1>Meine Workouts</h1>
+            <button class="btn btn-primary" id="createWorkoutBtn">+ Neues Workout</button>
+        </div>
+        <div id="workoutsList" class="workouts-grid"></div>
+    </div>
+
+    <!-- Training View -->
+    <div id="training-view" class="view">
+        <div class="view-header">
+            <h1>Training</h1>
+            <button class="btn btn-primary" id="todayTrainingBtn">Heute trainieren</button>
+        </div>
+        <div id="trainingContent"></div>
+    </div>
+
+    <!-- Timer View -->
+    <div id="timer-view" class="view">
+        <div class="view-header">
+            <h1>⏱️ Timer</h1>
+        </div>
+
+        <div class="timer-container">
+            <!-- Timer-Tabs -->
+            <div class="timer-tabs">
+                <button class="timer-tab active" data-mode="countdown">
+                    ⏱️ Countdown
+                </button>
+                <button class="timer-tab" data-mode="stopwatch">
+                    ⏲️ Stoppuhr
+                </button>
+                <button class="timer-tab" data-mode="interval">
+                    🔄 Intervall
+                </button>
+            </div>
+
+            <!-- Timer-Display -->
+            <div class="timer-display" id="timerDisplay">
+                01:00
+            </div>
+
+            <!-- Timer-Controls -->
+            <div class="timer-controls" id="timerControls">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+
+            <!-- Timer-Presets -->
+            <div class="timer-presets" id="timerPresets">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Stats View -->
+    <div id="stats-view" class="view">
+        <div class="view-header">
+            <h1>Statistiken</h1>
+            <div class="stats-period">
+                <button class="period-btn active" data-period="week">Woche</button>
+                <button class="period-btn" data-period="month">Monat</button>
+                <button class="period-btn" data-period="all">Gesamt</button>
+            </div>
+        </div>
+        <div id="statsContent" class="stats-grid"></div>
+    </div>
+</main>
+
+<!-- Modals -->
+<div id="modalOverlay" class="modal-overlay"></div>
+<div id="modalContainer"></div>
+
+<!-- Scripts -->
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
