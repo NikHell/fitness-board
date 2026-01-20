@@ -11,6 +11,7 @@ import { WorkoutModule } from './modules/workout.js';
 import { TrainingModule } from './modules/training.js';
 import { TimerModule } from './modules/timer.js';
 import { StatsModule } from './modules/stats.js';
+import { RecoveryModule } from './modules/recovery.js';
 import { UI } from './modules/ui.js';
 import { formatDate, generateId } from './utils.js';
 
@@ -78,6 +79,7 @@ class FitnessApp {
             workout: new WorkoutModule(this.store, this.eventBus),
             training: new TrainingModule(this.store, this.eventBus),
             timer: new TimerModule(this.store, this.eventBus),
+            recovery: new RecoveryModule(this.store, this.eventBus),
             stats: new StatsModule(this.store, this.eventBus),
             ui: new UI(this.store, this.eventBus)
         };
@@ -233,6 +235,9 @@ class FitnessApp {
             case 'timer':
                 this.modules.timer.render();
                 break;
+            case 'recovery':
+                this.modules.recovery.render();
+                break;
             case 'stats':
                 this.modules.stats.render();
                 break;
@@ -318,6 +323,30 @@ class FitnessApp {
             console.error('❌ Fehler:', data.message);
             this.modules.ui.showToast(data.message, 'error');
         });
+
+        // Recovery-Warnungen
+        this.eventBus.on('lowRecovery', (data) => {
+            this.modules.ui.showToast(
+                `⚠️ Niedriger Regenerations-Score: ${data.score}%. Ruhetag empfohlen!`,
+                'warning',
+                8000
+            );
+        });
+
+        this.eventBus.on('deloadRecommended', (data) => {
+            this.modules.ui.showToast(
+                `📉 Deload-Woche empfohlen! Grund: ${data.reason}`,
+                'info',
+                10000
+            );
+        });
+
+        // Recovery-View neu rendern nach Deload
+        this.eventBus.on('deloadMarked', () => {
+            if (this.currentView === 'recovery') {
+                this.modules.recovery.render();
+            }
+        });
     }
 
     /**
@@ -334,6 +363,9 @@ class FitnessApp {
 
         // Timer-Modul
         this.modules.timer.init();
+
+        // Recovery-Modul
+        this.modules.recovery.init();
 
         // Stats-Modul
         this.modules.stats.init();
