@@ -200,6 +200,28 @@ export class RecoveryModule {
         if (sessions.length === 0) return false;
 
         const lastDeload = this.getLastDeloadDate();
+
+        // Wenn noch nie Deload gemacht wurde, nicht empfehlen
+        // (erst nach mindestens 4 Wochen Training)
+        if (!lastDeload || lastDeload.getTime() === 0 || lastDeload.getFullYear() < 2000) {
+            // Prüfe wie lange schon trainiert wird
+            const firstSession = sessions.sort((a, b) =>
+                new Date(a.date) - new Date(b.date)
+            )[0];
+
+            const weeksSinceStart = this.getWeeksSince(new Date(firstSession.date));
+
+            if (weeksSinceStart >= 4) {
+                this.eventBus.emit('deloadRecommended', {
+                    weeksSinceStart,
+                    reason: 'Erste Deload-Woche nach 4 Wochen Training'
+                });
+                return true;
+            }
+
+            return false;
+        }
+
         const weeksSinceDeload = this.getWeeksSince(lastDeload);
 
         // Deload alle 4 Wochen empfehlen
@@ -215,7 +237,7 @@ export class RecoveryModule {
         const currentVolume = this.calculateWeeklyVolume(this.getLastWeekSessions());
         const avgVolume = this.getAverageWeeklyVolume();
 
-        if (currentVolume > avgVolume * this.thresholds.volumeIncrease) {
+        if (avgVolume > 0 && currentVolume > avgVolume * this.thresholds.volumeIncrease) {
             this.eventBus.emit('deloadRecommended', {
                 volumeIncrease: ((currentVolume / avgVolume - 1) * 100).toFixed(0) + '%',
                 reason: 'Hohes Volumen'
@@ -235,6 +257,7 @@ export class RecoveryModule {
 
         return false;
     }
+
 
     /**
      * Letztes Deload-Datum abrufen
@@ -260,10 +283,16 @@ export class RecoveryModule {
      * Wochen seit Datum berechnen
      */
     getWeeksSince(date) {
+        // Wenn noch nie Deload gemacht wurde (Datum = 1970)
+        if (!date || date.getTime() === 0 || date.getFullYear() < 2000) {
+            return null; // null statt 0, um zu signalisieren "noch nie"
+        }
+
         const now = new Date();
         const diff = now - date;
         return Math.floor(diff / (1000 * 60 * 60 * 24 * 7));
     }
+
 
     /**
      * Sessions der letzten Woche
@@ -316,56 +345,102 @@ export class RecoveryModule {
         const status = this.checkRecoveryStatus();
         const deloadNeeded = this.checkDeloadNeeded();
 
+        // Wochen seit Deload berechnen
+        const lastDeload = this.getLastDeloadDate();
+        let weeksSinceDeload = this.getWeeksSince(lastDeload);
+
+        // Wenn null (noch nie Deload), auf 0 setzen für Anzeige
+        if (weeksSinceDeload === null) {
+            weeksSinceDeload = 0;
+        }
+
         return {
             score,
             status: status.status,
             consecutiveDays: status.consecutiveDays,
-            weeksSinceDeload: status.weeksSinceDeload,
+            weeksSinceDeload: weeksSinceDeload,
+            lastDeloadDate: lastDeload, // NEU: Datum mitgeben
             deloadNeeded,
             recommendations: this.getRecommendations(score, status)
         };
     }
 
+
     /**
-     * Empfehlungen generieren
+     * Empfehlungen generieren (nur die wichtigste)
      */
     getRecommendations(score, status) {
-        const recommendations = [];
-
-        if (score < 40) {
-            recommendations.push({
-                icon: '😴',
-                text: 'Ruhetag einlegen',
-                priority: 'high'
-            });
-        }
-
-        if (status.consecutiveDays >= 5) {
-            recommendations.push({
+        // Priorität 1: KRITISCH - Sofortiger Ruhetag nötig
+        if (score < 20) {
+            return [{
                 icon: '🛑',
-                text: 'Mindestens 1 Ruhetag nehmen',
+                text: 'DRINGEND: Ruhetag einlegen! Ihr Körper braucht Erholung.',
                 priority: 'high'
-            });
+            }];
         }
 
+        // Priorität 2: HOCH - Übertraining-Warnung
+        if (status.consecutiveDays >= 6) {
+            return [{
+                icon: '😴',
+                text: `${status.consecutiveDays} Tage in Folge trainiert. Mindestens 1 Ruhetag nehmen!`,
+                priority: 'high'
+            }];
+        }
+
+        // Priorität 3: HOCH - Sehr niedriger Score
+        if (score < 40) {
+            return [{
+                icon: '⚠️',
+                text: 'Regeneration ist niedrig. Heute nur leichtes Training oder Pause.',
+                priority: 'high'
+            }];
+        }
+
+        // Priorität 4: MITTEL - Deload-Woche fällig
         if (status.weeksSinceDeload >= 4) {
-            recommendations.push({
+            return [{
                 icon: '📉',
-                text: 'Deload-Woche durchführen',
+                text: `${status.weeksSinceDeload} Wochen seit letztem Deload. Zeit für eine Erholungswoche!`,
                 priority: 'medium'
-            });
+            }];
         }
 
-        if (score >= 80) {
-            recommendations.push({
-                icon: '💪',
-                text: 'Bereit für intensives Training',
+        // Priorität 5: MITTEL - Mäßige Regeneration
+        if (score < 60) {
+            return [{
+                icon: '🔋',
+                text: 'Regeneration ist okay, aber nicht optimal. Achten Sie auf ausreichend Schlaf.',
+                priority: 'medium'
+            }];
+        }
+
+        // Priorität 6: NIEDRIG - Gute Regeneration
+        if (score >= 60 && score < 80) {
+            return [{
+                icon: '✅',
+                text: 'Gute Regeneration! Sie können normal trainieren.',
                 priority: 'low'
-            });
+            }];
         }
 
-        return recommendations;
+        // Priorität 7: NIEDRIG - Ausgezeichnete Regeneration
+        if (score >= 80) {
+            return [{
+                icon: '💪',
+                text: 'Ausgezeichnete Regeneration! Bereit für intensives Training.',
+                priority: 'low'
+            }];
+        }
+
+        // Fallback (sollte nie erreicht werden)
+        return [{
+            icon: '✅',
+            text: 'Alles im grünen Bereich!',
+            priority: 'low'
+        }];
     }
+
 
     /**
      * Recovery-View rendern
@@ -416,20 +491,54 @@ export class RecoveryModule {
         const weeksSinceDeload = document.getElementById('weeksSinceDeload');
         const weeklyVolume = document.getElementById('weeklyVolume');
 
+        // Tage in Folge
         if (consecutiveDays) {
             consecutiveDays.textContent = data.consecutiveDays;
         }
 
+        // Wochen seit Deload - WICHTIG!
         if (weeksSinceDeload) {
-            weeksSinceDeload.textContent = data.weeksSinceDeload;
+            const lastDeload = this.getLastDeloadDate();
+            const statCard = weeksSinceDeload.closest('.stat-card');
+            const label = statCard ? statCard.querySelector('.stat-label') : null;
+
+            // Prüfen ob jemals Deload gemacht wurde
+            if (!lastDeload || lastDeload.getTime() === 0 || lastDeload.getFullYear() < 2000) {
+                // Noch nie Deload gemacht
+                weeksSinceDeload.textContent = '-';
+                if (label) {
+                    label.textContent = 'Noch kein Deload';
+                }
+            } else if (data.weeksSinceDeload === 0) {
+                // Gerade erst Deload gemacht (diese Woche)
+                weeksSinceDeload.textContent = '0';
+                if (label) {
+                    label.textContent = 'Diese Woche Deload';
+                }
+            } else {
+                // Normale Anzeige
+                weeksSinceDeload.textContent = data.weeksSinceDeload;
+                if (label) {
+                    label.textContent = 'Wochen seit Deload';
+                }
+            }
         }
 
+        // Wöchentliches Volumen
         if (weeklyVolume) {
             const sessions = this.getLastWeekSessions();
             const volume = this.calculateWeeklyVolume(sessions);
-            weeklyVolume.textContent = Math.round(volume / 1000) + 'k';
+
+            if (volume === 0) {
+                weeklyVolume.textContent = '-';
+            } else if (volume < 1000) {
+                weeklyVolume.textContent = Math.round(volume);
+            } else {
+                weeklyVolume.textContent = (volume / 1000).toFixed(1) + 'k';
+            }
         }
     }
+
 
     /**
      * Empfehlungen rendern
