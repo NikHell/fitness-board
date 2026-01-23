@@ -396,6 +396,7 @@ export class TrainingModule {
         this.resetSession();
     }
 
+
     /**
      * Training abbrechen
      */
@@ -675,56 +676,212 @@ export class TrainingModule {
      */
 
     /**
+     * Gesamtvolumen berechnen
+     * @returns {number}
+     */
+    calculateTotalVolume() {
+        if (!this.activeSession) return 0;
+
+        return this.activeSession.exercises.reduce((total, ex) => {
+            return total + ex.sets.reduce((exTotal, set) => {
+                return set.completed ? exTotal + (set.weight * set.reps) : exTotal;
+            }, 0);
+        }, 0);
+    }
+
+    /**
+     * Volumen nach Muskelgruppen berechnen
+     * @returns {Object} Volumen pro Muskelgruppe
+     */
+    getVolumeByMuscleGroup() {
+        if (!this.activeSession) return {};
+
+        const volumeMap = {};
+
+        this.activeSession.exercises.forEach(ex => {
+            const exercise = this.store.getExercise(ex.exerciseId);
+            const muscleGroup = exercise?.muscleGroup || 'Unbekannt';
+
+            const volume = ex.sets.reduce((total, set) => {
+                return set.completed ? total + (set.weight * set.reps) : total;
+            }, 0);
+
+            volumeMap[muscleGroup] = (volumeMap[muscleGroup] || 0) + volume;
+        });
+
+        return volumeMap;
+    }
+
+    /**
+     * Volumen-Empfehlung basierend auf letztem Training
+     * @returns {Object|null} Empfehlung
+     */
+    getVolumeRecommendation() {
+        const sessions = this.store.getSessionsByWorkout(this.currentWorkout.id);
+        if (sessions.length === 0) return null;
+
+        const currentVolume = this.calculateTotalVolume();
+        const lastSession = sessions[0];
+
+        // Letztes Volumen berechnen
+        const lastVolume = lastSession.exercises.reduce((total, ex) => {
+            return total + ex.sets.reduce((exTotal, set) => {
+                return set.completed ? exTotal + (set.weight * set.reps) : exTotal;
+            }, 0);
+        }, 0);
+
+        if (lastVolume === 0) return null;
+
+        const change = ((currentVolume - lastVolume) / lastVolume * 100).toFixed(1);
+        const changeAbs = Math.abs(change);
+
+        // Empfehlungen basierend auf Volumen-Änderung
+        if (change > 15) {
+            return {
+                type: 'warning',
+                icon: '⚠️',
+                text: `Volumen um ${changeAbs}% erhöht. Achte auf ausreichend Regeneration!`,
+                color: 'var(--accent-warning)'
+            };
+        } else if (change > 5) {
+            return {
+                type: 'success',
+                icon: '✅',
+                text: `Gute Progression! Volumen um ${changeAbs}% gesteigert.`,
+                color: 'var(--accent-primary)'
+            };
+        } else if (change < -10) {
+            return {
+                type: 'info',
+                icon: '📉',
+                text: `Volumen um ${changeAbs}% reduziert. Deload-Woche?`,
+                color: 'var(--accent-info)'
+            };
+        } else if (Math.abs(change) <= 5) {
+            return {
+                type: 'neutral',
+                icon: '💡',
+                text: 'Volumen stabil. Überlege, Gewicht oder Wiederholungen zu erhöhen.',
+                color: 'var(--text-secondary)'
+            };
+        }
+
+        return null;
+    }
+
+
+    /**
      * Training-Zusammenfassung anzeigen
      */
     showTrainingSummary() {
+        console.log('🎉 showTrainingSummary() aufgerufen!', this.activeSession); // ← NEU
+
         const duration = this.activeSession.duration;
         const completedSets = this.getCompletedSetsCount();
         const totalSets = this.getTotalSetsCount();
         const totalVolume = this.calculateTotalVolume();
+        const volumeByMuscleGroup = this.getVolumeByMuscleGroup();
+        const volumeRecommendation = this.getVolumeRecommendation();
+
+        // Volumen formatieren
+        const formatVolume = (vol) => {
+            if (vol >= 1000) {
+                return `${(vol / 1000).toFixed(1)}k kg`;
+            }
+            return `${vol} kg`;
+        };
 
         const modalContent = `
-            <div class="training-summary">
-                <div style="text-align: center; margin-bottom: 2rem;">
-                    <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
-                    <h2 style="color: var(--accent-primary); margin-bottom: 0.5rem;">Training abgeschlossen!</h2>
-                    <p style="color: var(--text-secondary);">Großartige Leistung! 💪</p>
-                </div>
+        <div class="training-summary">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
+                <h2 style="color: var(--accent-primary); margin-bottom: 0.5rem;">Training abgeschlossen!</h2>
+                <p style="color: var(--text-secondary);">Großartige Leistung! 💪</p>
+            </div>
 
-                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
-                    <div class="stat-card">
-                        <div class="stat-card-title">Dauer</div>
-                        <div class="stat-card-value">${Math.floor(duration / 60)}min</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Sets</div>
-                        <div class="stat-card-value">${completedSets}/${totalSets}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Volumen</div>
-                        <div class="stat-card-value">${totalVolume}kg</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Übungen</div>
-                        <div class="stat-card-value">${this.activeSession.exercises.length}</div>
+            <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <div class="stat-card-title">Dauer</div>
+                    <div class="stat-card-value">${Math.floor(duration / 60)}min</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-title">Sets</div>
+                    <div class="stat-card-value">${completedSets}/${totalSets}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-title">Trainingsvolumen</div>
+                    <div class="stat-card-value">${formatVolume(totalVolume)}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                        Gewicht × Wiederholungen
                     </div>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Übungen</label>
-                    ${this.activeSession.exercises.map(ex => {
-            const exercise = this.store.getExercise(ex.exerciseId);
-            const completedSets = ex.sets.filter(s => s.completed).length;
-            return `
-                            <div class="exercise-item" style="margin-bottom: 0.5rem;">
-                                <span>${exercise?.name || 'Unbekannt'}</span>
-                                <span class="badge badge-success">${completedSets}/${ex.sets.length} Sets</span>
-                            </div>
-                        `;
-        }).join('')}
+                <div class="stat-card">
+                    <div class="stat-card-title">Übungen</div>
+                    <div class="stat-card-value">${this.activeSession.exercises.length}</div>
                 </div>
             </div>
-        `;
+
+            ${volumeRecommendation ? `
+                <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 1.5rem; border-left: 3px solid ${volumeRecommendation.color};">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">${volumeRecommendation.icon}</span>
+                        <div>
+                            <div style="font-weight: 500; color: ${volumeRecommendation.color};">Volumen-Empfehlung</div>
+                            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                ${volumeRecommendation.text}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${Object.keys(volumeByMuscleGroup).length > 0 ? `
+                <div class="form-group">
+                    <label class="form-label">Volumen nach Muskelgruppen</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        ${Object.entries(volumeByMuscleGroup)
+            .sort((a, b) => b[1] - a[1])
+            .map(([muscleGroup, volume]) => {
+                const percentage = ((volume / totalVolume) * 100).toFixed(0);
+                return `
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <div style="flex: 0 0 120px; font-weight: 500;">${muscleGroup}</div>
+                                        <div style="flex: 1; background: var(--bg-secondary); border-radius: 4px; height: 24px; position: relative; overflow: hidden;">
+                                            <div style="background: var(--accent-primary); height: 100%; width: ${percentage}%; transition: width 0.3s;"></div>
+                                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
+                                                ${formatVolume(volume)} (${percentage}%)
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+            }).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <label class="form-label">Übungen</label>
+                ${this.activeSession.exercises.map(ex => {
+            const exercise = this.store.getExercise(ex.exerciseId);
+            const completedSets = ex.sets.filter(s => s.completed).length;
+            const exerciseVolume = ex.sets.reduce((total, set) => {
+                return set.completed ? total + (set.weight * set.reps) : total;
+            }, 0);
+            return `
+                        <div class="exercise-item" style="margin-bottom: 0.5rem;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500;">${exercise?.name || 'Unbekannt'}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                    ${formatVolume(exerciseVolume)}
+                                </div>
+                            </div>
+                            <span class="badge badge-success">${completedSets}/${ex.sets.length} Sets</span>
+                        </div>
+                    `;
+        }).join('')}
+            </div>
+        </div>
+    `;
 
         const buttons = [
             {
@@ -732,7 +889,6 @@ export class TrainingModule {
                 className: 'btn-primary',
                 onClick: () => {
                     this.eventBus.emit('closeModal');
-                    // Zur Stats-View wechseln
                     document.querySelector('[data-view="stats"]')?.click();
                 }
             },
@@ -752,19 +908,7 @@ export class TrainingModule {
         });
     }
 
-    /**
-     * Gesamtvolumen berechnen
-     * @returns {number}
-     */
-    calculateTotalVolume() {
-        if (!this.activeSession) return 0;
 
-        return this.activeSession.exercises.reduce((total, ex) => {
-            return total + ex.sets.reduce((exTotal, set) => {
-                return set.completed ? exTotal + (set.weight * set.reps) : exTotal;
-            }, 0);
-        }, 0);
-    }
 
     /**
      * ========================================

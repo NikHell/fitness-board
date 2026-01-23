@@ -11,6 +11,8 @@
  */
 
 import { formatDate, formatNumber, percentage, groupBy, sortBy } from '../utils.js';
+import { VolumeAnalysis } from './volumeAnalysis.js';  // ✅ RICHTIG!
+
 
 export class StatsModule {
     constructor(store, eventBus) {
@@ -23,6 +25,9 @@ export class StatsModule {
         // State
         this.selectedPeriod = 'all'; // all, week, month, year
         this.selectedExercise = null;
+
+        // Volume Analysis ← NEU!
+        this.volumeAnalysis = new VolumeAnalysis(store);
     }
 
     /**
@@ -81,12 +86,15 @@ export class StatsModule {
             <div class="stats-container">
                 ${this.renderPeriodFilter()}
                 ${this.renderOverviewStats(sessions)}
+                ${this.volumeAnalysis.render(sessions)}  ← NEU! Intelligente Volumen-Analyse
                 ${this.renderRecentTrainings(sessions)}
                 ${this.renderPersonalRecords()}
                 ${this.renderVolumeChart(sessions)}
                 ${this.renderExerciseStats()}
             </div>
         `;
+
+
 
         // Event-Listener
         this.attachStatsListeners();
@@ -297,6 +305,142 @@ export class StatsModule {
         `;
     }
 
+
+    /**
+     * Volumen nach Muskelgruppen rendern
+     * @param {Array} sessions - Training Sessions
+     * @returns {string} HTML
+     */
+    renderVolumeByMuscleGroup(sessions) {
+        const muscleGroups = {};
+
+        // Berechne Volumen pro Muskelgruppe
+        sessions.forEach(session => {
+            session.exercises?.forEach(ex => {
+                const exercise = this.store.getExercise(ex.exerciseId);
+                if (!exercise) return;
+
+                const muscle = exercise.muscleGroup;
+                if (!muscleGroups[muscle]) {
+                    muscleGroups[muscle] = 0;
+                }
+
+                ex.sets.forEach(set => {
+                    if (set.completed) {
+                        muscleGroups[muscle] += set.weight * set.reps;
+                    }
+                });
+            });
+        });
+
+        // Sortiere nach Volumen
+        const sortedMuscles = Object.entries(muscleGroups)
+            .sort((a, b) => b[1] - a[1]);
+
+        if (sortedMuscles.length === 0) return '';
+
+        const totalVolume = sortedMuscles.reduce((sum, [_, vol]) => sum + vol, 0);
+
+        // Formatierung
+        const formatVolume = (vol) => {
+            if (vol >= 1000) {
+                return `${(vol / 1000).toFixed(1)}k kg`;
+            }
+            return `${formatNumber(vol)} kg`;
+        };
+
+        return `
+        <div class="stats-section" style="margin-bottom: 2rem;">
+            <h3 style="margin-bottom: 1rem;">💪 Volumen nach Muskelgruppen</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                ${sortedMuscles.map(([muscleGroup, volume]) => {
+            const percentage = ((volume / totalVolume) * 100).toFixed(0);
+
+            return `
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="flex: 0 0 120px; font-weight: 500; color: var(--text-primary);">
+                                ${muscleGroup}
+                            </div>
+                            <div style="flex: 1; background: var(--bg-secondary); border-radius: 6px; height: 32px; position: relative; overflow: hidden;">
+                                <div style="background: linear-gradient(90deg, var(--accent-primary), var(--accent-primary-dark)); height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+                                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.9rem; font-weight: 600; color: var(--text-primary); text-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                                    ${formatVolume(volume)} (${percentage}%)
+                                </div>
+                            </div>
+                            <div style="flex: 0 0 80px; text-align: right; font-size: 0.9rem; color: var(--text-secondary);">
+                                ${formatVolume(volume)}
+                            </div>
+                        </div>
+                    `;
+        }).join('')}
+            </div>
+
+            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--accent-info);">
+                <div style="display: flex; align-items: start; gap: 0.75rem;">
+                    <span style="font-size: 1.5rem;">💡</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; margin-bottom: 0.25rem;">Volumen-Empfehlung</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            ${this.getVolumeRecommendationText(muscleGroups, totalVolume)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    /**
+     * Volumen-Empfehlungstext generieren
+     * @param {Object} muscleGroups - Volumen pro Muskelgruppe
+     * @param {number} totalVolume - Gesamtvolumen
+     * @returns {string}
+     */
+    getVolumeRecommendationText(muscleGroups, totalVolume) {
+        const entries = Object.entries(muscleGroups);
+        if (entries.length === 0) return 'Keine Daten verfügbar.';
+
+        // Finde dominante Muskelgruppe
+        const sorted = entries.sort((a, b) => b[1] - a[1]);
+        const [topMuscle, topVolume] = sorted[0];
+        const topPercentage = ((topVolume / totalVolume) * 100).toFixed(0);
+
+        // Finde untertrainierte Muskelgruppen
+        const undertrainedMuscles = sorted.filter(([_, vol]) => {
+            const percent = (vol / totalVolume) * 100;
+            return percent < 15; // Weniger als 15% des Gesamtvolumens
+        });
+
+        let recommendations = [];
+
+        // Dominante Muskelgruppe
+        if (topPercentage > 40) {
+            recommendations.push(`${topMuscle} dominiert mit ${topPercentage}% des Volumens.`);
+        }
+
+        // Untertrainierte Muskelgruppen
+        if (undertrainedMuscles.length > 0 && undertrainedMuscles.length < entries.length) {
+            const muscleNames = undertrainedMuscles.map(([name]) => name).join(', ');
+            recommendations.push(`Überlege, mehr Volumen für ${muscleNames} einzuplanen.`);
+        }
+
+        // Ausgewogenes Training
+        if (topPercentage < 35 && undertrainedMuscles.length === 0) {
+            recommendations.push('Gute Balance zwischen den Muskelgruppen! 💪');
+        }
+
+        // Volumen-Steigerung
+        if (totalVolume < 10000) {
+            recommendations.push('Steigere das Gesamtvolumen schrittweise für mehr Fortschritt.');
+        }
+
+        return recommendations.length > 0
+            ? recommendations.join(' ')
+            : 'Trainiere weiter so! 🎯';
+    }
+
+
     /**
      * Übungs-Statistiken rendern
      * @returns {string} HTML
@@ -372,14 +516,36 @@ export class StatsModule {
             });
         });
 
-        // Session-Karten (Details anzeigen)
+        // Session-Karten
         this.statsContentEl.querySelectorAll('.session-card').forEach(card => {
             card.addEventListener('click', () => {
                 const sessionId = card.dataset.sessionId;
                 this.showSessionDetails(sessionId);
             });
         });
+
+        // Profil-Einstellungen
+        const saveProfileBtn = document.getElementById('saveProfileBtn');
+        if (saveProfileBtn) {
+            saveProfileBtn.addEventListener('click', () => {
+                const profile = {
+                    experience: document.getElementById('profileExperience').value,
+                    frequency: parseInt(document.getElementById('profileFrequency').value),
+                    goals: document.getElementById('profileGoals').value
+                };
+
+                this.volumeAnalysis.saveUserProfile(profile);
+
+                this.eventBus.emit('showToast', {
+                    message: '✅ Profil gespeichert! Bereiche wurden angepasst.',
+                    type: 'success'
+                });
+
+                this.render();
+            });
+        }
     }
+
 
     /**
      * ========================================
