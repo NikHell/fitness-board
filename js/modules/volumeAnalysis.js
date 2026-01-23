@@ -108,121 +108,6 @@ export class VolumeAnalysis {
         });
     }
 
-    /**
-     * Rendere Profil-Einstellungen
-     */
-    renderProfileSettings() {
-        const profile = this.getUserProfile();
-
-        return `
-            <div class="analysis-section" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
-                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    <span>⚙️</span>
-                    <span>Dein Trainings-Profil</span>
-                </h3>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
-                    <!-- Trainingserfahrung -->
-                    <div class="form-group">
-                        <label class="form-label">Trainingserfahrung</label>
-                        <select id="profileExperience" class="form-select" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary);">
-                            <option value="beginner" ${profile.experience === 'beginner' ? 'selected' : ''}>
-                                Anfänger (< 1 Jahr)
-                            </option>
-                            <option value="intermediate" ${profile.experience === 'intermediate' ? 'selected' : ''}>
-                                Fortgeschritten (1-3 Jahre)
-                            </option>
-                            <option value="advanced" ${profile.experience === 'advanced' ? 'selected' : ''}>
-                                Profi (> 3 Jahre)
-                            </option>
-                        </select>
-                    </div>
-
-                    <!-- Trainingshäufigkeit -->
-                    <div class="form-group">
-                        <label class="form-label">Trainings pro Woche</label>
-                        <select id="profileFrequency" class="form-select" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary);">
-                            <option value="2" ${profile.frequency === 2 ? 'selected' : ''}>2× pro Woche</option>
-                            <option value="3" ${profile.frequency === 3 ? 'selected' : ''}>3× pro Woche</option>
-                            <option value="4" ${profile.frequency === 4 ? 'selected' : ''}>4× pro Woche</option>
-                            <option value="5" ${profile.frequency === 5 ? 'selected' : ''}>5× pro Woche</option>
-                            <option value="6" ${profile.frequency === 6 ? 'selected' : ''}>6× pro Woche</option>
-                            <option value="7" ${profile.frequency === 7 ? 'selected' : ''}>7× pro Woche</option>
-                        </select>
-                    </div>
-
-                    <!-- Trainingsziel -->
-                    <div class="form-group">
-                        <label class="form-label">Trainingsziel</label>
-                        <select id="profileGoals" class="form-select" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary);">
-                            <option value="muscle_building" ${profile.goals === 'muscle_building' ? 'selected' : ''}>
-                                Muskelaufbau
-                            </option>
-                            <option value="strength" ${profile.goals === 'strength' ? 'selected' : ''}>
-                                Kraftaufbau
-                            </option>
-                            <option value="endurance" ${profile.goals === 'endurance' ? 'selected' : ''}>
-                                Ausdauer
-                            </option>
-                        </select>
-                    </div>
-                </div>
-
-                <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent-info);">
-                    <div style="display: flex; align-items: start; gap: 0.75rem;">
-                        <span style="font-size: 1.5rem;">💡</span>
-                        <div style="flex: 1;">
-                            <div style="font-weight: 500; margin-bottom: 0.5rem;">Deine optimalen Volumen-Bereiche:</div>
-                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                ${this.getProfileDescription(profile)}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <button id="saveProfileBtn" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">
-                    💾 Profil speichern
-                </button>
-            </div>
-        `;
-    }
-
-    /**
-     * Profil-Beschreibung
-     */
-    getProfileDescription(profile) {
-        const expLabels = {
-            'beginner': 'Anfänger',
-            'intermediate': 'Fortgeschritten',
-            'advanced': 'Profi'
-        };
-
-        const expMult = {
-            'beginner': 0.5,
-            'intermediate': 0.75,
-            'advanced': 1.0
-        }[profile.experience];
-
-        const freqMult = {
-            2: 0.7,
-            3: 1.0,
-            4: 1.2,
-            5: 1.4,
-            6: 1.4,
-            7: 1.4
-        }[profile.frequency] || 1.0;
-
-        const totalMult = expMult * freqMult;
-        const percentage = Math.round(totalMult * 100);
-
-        return `
-            Als <strong>${expLabels[profile.experience]}</strong> mit <strong>${profile.frequency}× Training/Woche</strong> 
-            sind deine optimalen Bereiche bei <strong>${percentage}%</strong> der Profi-Werte.
-            <br><br>
-            Beispiel Brust: ${this.formatVolume(30000 * totalMult)} - ${this.formatVolume(50000 * totalMult)} pro Woche
-        `;
-    }
-
 
     /**
      * ========================================
@@ -246,7 +131,6 @@ export class VolumeAnalysis {
         return `
             <div class="volume-analysis-container">
                 ${this.renderHeader()}
-                ${this.renderProfileSettings()}  ← NEU!
                 ${this.renderTrendAnalysis(sessions)}
                 ${this.renderMuscleGroupBalance(sessions)}
                 ${this.renderOptimalRanges(sessions)}

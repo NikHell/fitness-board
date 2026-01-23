@@ -434,22 +434,58 @@ export class SettingsModule {
      * Speichere Benutzer-Profil
      */
     saveUserProfile() {
+        console.log('💾 Speichere Profil...');
+
+        // Werte aus Formular lesen
+        const experienceEl = document.getElementById('profileExperience');
+        const frequencyEl = document.getElementById('profileFrequency');
+        const goalsEl = document.getElementById('profileGoals');
+
+        // Debug: Prüfen ob Elemente existieren
+        console.log('Experience Element:', experienceEl);
+        console.log('Frequency Element:', frequencyEl);
+        console.log('Goals Element:', goalsEl);
+
+        if (!experienceEl || !frequencyEl || !goalsEl) {
+            console.error('❌ Formular-Elemente nicht gefunden!');
+            alert('Fehler: Formular-Elemente nicht gefunden!');
+            return;
+        }
+
         const profile = {
-            experience: document.getElementById('profileExperience').value,
-            frequency: parseInt(document.getElementById('profileFrequency').value),
-            goals: document.getElementById('profileGoals').value
+            experience: experienceEl.value,
+            frequency: parseInt(frequencyEl.value),
+            goals: goalsEl.value
         };
 
-        localStorage.setItem('userProfile', JSON.stringify(profile));
+        console.log('Profil-Daten:', profile);
 
-        this.eventBus.emit('showToast', {
-            message: '✅ Profil gespeichert!',
-            type: 'success'
-        });
+        // In localStorage speichern
+        try {
+            localStorage.setItem('userProfile', JSON.stringify(profile));
+            console.log('✅ Profil in localStorage gespeichert');
 
-        // Analyse-View aktualisieren falls offen
-        this.eventBus.emit('profileUpdated', { profile });
+            // Toast-Benachrichtigung
+            if (this.eventBus) {
+                this.eventBus.emit('showToast', {
+                    message: '✅ Profil gespeichert!',
+                    type: 'success'
+                });
+                console.log('✅ Toast-Event gesendet');
+            } else {
+                console.error('❌ EventBus nicht verfügbar!');
+                alert('✅ Profil gespeichert!'); // Fallback
+            }
+
+            // Analyse-View aktualisieren falls offen
+            this.eventBus.emit('profileUpdated', { profile });
+
+        } catch (e) {
+            console.error('❌ Fehler beim Speichern:', e);
+            alert('❌ Fehler beim Speichern: ' + e.message);
+        }
     }
+
 
     /**
      * ========================================
