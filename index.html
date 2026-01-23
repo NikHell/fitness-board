@@ -29,18 +29,23 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
 <!-- Navigation -->
 <nav class="navbar">
     <div class="nav-brand">💪 Fitness Board</div>
     <div class="nav-menu">
-        <button class="nav-btn active" data-view="workouts">Workouts</button>
-        <button class="nav-btn" data-view="training">Training</button>
-        <button class="nav-btn" data-view="timer">Timer</button>
-        <button class="nav-btn" data-view="recovery">Regeneration</button>
-        <button class="nav-btn" data-view="stats">Statistiken</button>
+        <button class="nav-btn active" data-view="workouts">🏆 Workouts</button>
+        <button class="nav-btn" data-view="training">🏋️‍♂️ Training</button>
+        <button class="nav-btn" data-view="timer">⏱️ Timer</button>
+        <button class="nav-btn" data-view="recovery">💤 Regeneration</button>
+        <button class="nav-btn" data-view="stats">📊 Statistiken</button>
+        <button class="nav-btn" data-view="analysis">🧠 Analyse</button>
+        <button class="nav-btn" data-view="settings">⚙️ Einstellungen</button>
+
     </div>
-    <button class="settings-btn" id="settingsBtn">⚙️</button>
+    <!-- Settings-Button ENTFERNT! -->
 </nav>
+
 
 <!-- Main Content -->
 <main class="container">
@@ -149,11 +154,10 @@
         </div>
     </div>
 
-
     <!-- Stats View -->
     <div id="stats-view" class="view">
         <div class="view-header">
-            <h1>Statistiken</h1>
+            <h1>📊 Statistiken</h1>
             <div class="stats-period">
                 <button class="period-btn active" data-period="week">Woche</button>
                 <button class="period-btn" data-period="month">Monat</button>
@@ -162,6 +166,24 @@
         </div>
         <div id="statsContent" class="stats-grid"></div>
     </div>
+
+    <!-- Analysis View - NEU! HIER EINFÜGEN! -->
+    <div id="analysis-view" class="view">
+        <div class="view-header">
+            <h1>🧠 Trainingsanalyse</h1>
+        </div>
+        <div id="analysisContent"></div>
+    </div>
+
+    <!-- Settings View - NEU! HIER EINFÜGEN! -->
+    <div id="settings-view" class="view">
+        <div class="view-header">
+            <h1>⚙️ Einstellungen</h1>
+        </div>
+        <div id="settingsContent"></div>
+    </div>
+
+
 </main>
 
 <!-- Modals -->

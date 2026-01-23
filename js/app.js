@@ -12,6 +12,8 @@ import { TrainingModule } from './modules/training.js';
 import { TimerModule } from './modules/timer.js';
 import { StatsModule } from './modules/stats.js';
 import { RecoveryModule } from './modules/recovery.js';
+import { AnalysisModule } from './modules/analysis.js';  // ← NEU!
+import { SettingsModule } from './modules/settings.js';  // ← NEU!
 import { UI } from './modules/ui.js';
 import { formatDate, generateId } from './utils.js';
 
@@ -81,19 +83,16 @@ class FitnessApp {
             timer: new TimerModule(this.store, this.eventBus),
             recovery: new RecoveryModule(this.store, this.eventBus),
             stats: new StatsModule(this.store, this.eventBus),
+            analysis: new AnalysisModule(this.store, this.eventBus),  // ← NEU!
+            settings: new SettingsModule(this.store, this.eventBus),  // ← NEU!
             ui: new UI(this.store, this.eventBus)
         };
 
         // Aktuelle View
         this.currentView = 'workouts';
 
-        // Feature Flags
-        this.features = {
-            tvMode: false,
-            autoProgression: true,
-            soundEffects: true,
-            darkMode: true
-        };
+        // Feature Flags (werden jetzt von SettingsModule verwaltet)
+        this.features = this.modules.settings.features;
 
         // Initialisierung
         this.init();
@@ -105,10 +104,10 @@ class FitnessApp {
     init() {
         console.log('🚀 Fitness Board wird initialisiert...');
 
-        // Service Worker registrieren (PWA) - NEU!
+        // Service Worker registrieren (PWA)
         this.registerServiceWorker();
 
-        // Audio-Context initialisieren - NEU!
+        // Audio-Context initialisieren
         this.initAudioContext();
 
         // Navigation Setup
@@ -123,12 +122,11 @@ class FitnessApp {
         // Initial View laden
         this.showView(this.currentView);
 
-        // Feature Flags aus LocalStorage laden
-        this.loadFeatureFlags();
+        // Feature Flags anwenden
+        this.applyFeatureFlags();
 
         console.log('✅ Fitness Board bereit!');
     }
-
 
     /**
      * ========================================
@@ -178,7 +176,6 @@ class FitnessApp {
             });
         }
     }
-
 
     /**
      * ========================================
@@ -244,6 +241,12 @@ class FitnessApp {
             case 'stats':
                 this.modules.stats.render();
                 break;
+            case 'analysis':  // ← NEU!
+                this.modules.analysis.render();
+                break;
+            case 'settings':  // ← NEU!
+                this.modules.settings.render();
+                break;
         }
     }
 
@@ -253,13 +256,9 @@ class FitnessApp {
      * ========================================
      */
     setupGlobalEvents() {
-        // Settings Button
-        const settingsBtn = document.getElementById('settingsBtn');
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => {
-                this.showSettingsModal();
-            });
-        }
+        // Settings-Button ENTFERNT! (jetzt eigener Tab)
+        // const settingsBtn = document.getElementById('settingsBtn');
+        // if (settingsBtn) { ... }
 
         // Keyboard Shortcuts
         document.addEventListener('keydown', (e) => {
@@ -271,13 +270,19 @@ class FitnessApp {
 
         // Window Events
         window.addEventListener('beforeunload', () => {
-            this.saveFeatureFlags();
+            // Features werden jetzt von SettingsModule gespeichert
         });
 
         // Navigation-Event
         this.eventBus.on('navigateTo', (data) => {
             console.log('🔄 Navigation zu:', data.view);
             this.showView(data.view);
+        });
+
+        // Features-Update von SettingsModule
+        this.eventBus.on('featuresUpdated', (data) => {
+            this.features = data.features;
+            this.applyFeatureFlags();
         });
     }
 
@@ -308,8 +313,9 @@ class FitnessApp {
             console.log('✅ Training beendet:', data.session);
             this.modules.ui.showToast('Training abgeschlossen! 💪', 'success');
 
-            // Statistiken aktualisieren
+            // Statistiken & Analyse aktualisieren
             this.modules.stats.render();
+            this.modules.analysis.render();
         });
 
         // Set abgeschlossen
@@ -356,6 +362,14 @@ class FitnessApp {
                 this.modules.recovery.render();
             }
         });
+
+        // Profil-Update von SettingsModule
+        this.eventBus.on('profileUpdated', () => {
+            // Analyse neu rendern wenn Profil geändert wurde
+            if (this.currentView === 'analysis') {
+                this.modules.analysis.render();
+            }
+        });
     }
 
     /**
@@ -378,6 +392,12 @@ class FitnessApp {
 
         // Stats-Modul
         this.modules.stats.init();
+
+        // Analysis-Modul ← NEU!
+        this.modules.analysis.init();
+
+        // Settings-Modul ← NEU!
+        this.modules.settings.init();
 
         // UI-Modul
         this.modules.ui.init();
@@ -409,6 +429,12 @@ class FitnessApp {
             this.showView('stats');
         }
 
+        // Ctrl/Cmd + A: Analyse ← NEU!
+        if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+            e.preventDefault();
+            this.showView('analysis');
+        }
+
         // Escape: Modal schließen
         if (e.key === 'Escape') {
             this.modules.ui.closeModal();
@@ -423,268 +449,44 @@ class FitnessApp {
 
     /**
      * ========================================
-     * Settings Modal
+     * Feature Flags
      * ========================================
      */
-    showSettingsModal() {
-        const modalContent = `
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" ${this.features.tvMode ? 'checked' : ''} id="tvModeToggle">
-                    TV-Modus (Große Schrift)
-                </label>
-            </div>
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" ${this.features.autoProgression ? 'checked' : ''} id="autoProgressionToggle">
-                    Automatische Progression
-                </label>
-            </div>
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" ${this.features.soundEffects ? 'checked' : ''} id="soundEffectsToggle">
-                    Sound-Effekte
-                </label>
-            </div>
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" ${this.features.darkMode ? 'checked' : ''} id="darkModeToggle">
-                    Dark Mode
-                </label>
-            </div>
-            <div class="form-group">
-                <button class="btn btn-secondary" id="exportDataBtn">📥 Daten exportieren</button>
-                <button class="btn btn-secondary" id="importDataBtn">📤 Daten importieren</button>
-            </div>
-            <div class="form-group">
-                <button class="btn btn-danger" id="clearDataBtn">🗑️ Alle Daten löschen</button>
-            </div>
-        `;
-
-        this.modules.ui.showModal('Einstellungen', modalContent, [
-            {
-                text: 'Speichern',
-                className: 'btn-primary',
-                onClick: () => {
-                    this.saveSettings();
-                    this.modules.ui.closeModal();
-                }
-            },
-            {
-                text: 'Abbrechen',
-                className: 'btn-secondary',
-                onClick: () => {
-                    this.modules.ui.closeModal();
-                }
-            }
-        ]);
-
-        // Event-Listener für Settings
-        this.setupSettingsListeners();
-    }
 
     /**
-     * Settings Event-Listener
+     * Feature Flags anwenden
      */
-    setupSettingsListeners() {
-        // Export
-        const exportBtn = document.getElementById('exportDataBtn');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', () => {
-                this.exportData();
-            });
-        }
-
-        // Import
-        const importBtn = document.getElementById('importDataBtn');
-        if (importBtn) {
-            importBtn.addEventListener('click', () => {
-                this.importData();
-            });
-        }
-
-        // Clear Data
-        const clearBtn = document.getElementById('clearDataBtn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                if (confirm('Wirklich ALLE Daten löschen? Dies kann nicht rückgängig gemacht werden!')) {
-                    this.store.clearAll();
-                    this.modules.ui.showToast('Alle Daten gelöscht', 'info');
-                    this.modules.ui.closeModal();
-                    location.reload();
-                }
-            });
-        }
-    }
-
-    /**
-     * Settings speichern
-     */
-    saveSettings() {
-        // Feature Flags aus Checkboxen lesen
-        this.features.tvMode = document.getElementById('tvModeToggle')?.checked || false;
-        this.features.autoProgression = document.getElementById('autoProgressionToggle')?.checked || false;
-        this.features.soundEffects = document.getElementById('soundEffectsToggle')?.checked || false;
-        this.features.darkMode = document.getElementById('darkModeToggle')?.checked || false;
-
-        // TV-Modus anwenden
+    applyFeatureFlags() {
+        // TV-Modus
         if (this.features.tvMode) {
             document.body.classList.add('tv-mode');
         } else {
             document.body.classList.remove('tv-mode');
         }
 
-        // Dark Mode anwenden
+        // Dark Mode
         if (this.features.darkMode) {
             document.body.classList.remove('light-mode');
         } else {
             document.body.classList.add('light-mode');
         }
+    }
 
-        // In LocalStorage speichern
-        this.saveFeatureFlags();
-
-        this.modules.ui.showToast('Einstellungen gespeichert', 'success');
+    /**
+     * Feature-Flag prüfen
+     * @param {string} feature - Feature-Name
+     * @returns {boolean}
+     */
+    isFeatureEnabled(feature) {
+        return this.features[feature] || false;
     }
 
     /**
      * ========================================
-     * Feature Flags
-     * ========================================
-     */
-    loadFeatureFlags() {
-        const saved = localStorage.getItem('fitnessboard_features');
-        if (saved) {
-            try {
-                this.features = JSON.parse(saved);
-
-                // Features anwenden
-                if (this.features.tvMode) {
-                    document.body.classList.add('tv-mode');
-                }
-                if (!this.features.darkMode) {
-                    document.body.classList.add('light-mode');
-                }
-            } catch (e) {
-                console.error('Fehler beim Laden der Feature Flags:', e);
-            }
-        }
-    }
-
-    saveFeatureFlags() {
-        localStorage.setItem('fitnessboard_features', JSON.stringify(this.features));
-    }
-
-    /**
-     * ========================================
-     * Data Export/Import
-     * ========================================
-     */
-    exportData() {
-        const data = {
-            version: '1.0',
-            exportDate: new Date().toISOString(),
-            workouts: this.store.getWorkouts(),
-            exercises: this.store.getExercises(),
-            sessions: this.store.getSessions(),
-            features: this.features
-        };
-
-        const json = JSON.stringify(data, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `fitness-board-backup-${formatDate(new Date(), 'YYYY-MM-DD')}.json`;
-        a.click();
-
-        URL.revokeObjectURL(url);
-
-        this.modules.ui.showToast('Daten exportiert!', 'success');
-    }
-
-    importData() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'application/json';
-
-        input.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const data = JSON.parse(event.target.result);
-
-                    // Validierung
-                    if (!data.version || !data.workouts) {
-                        throw new Error('Ungültiges Backup-Format');
-                    }
-
-                    // Bestätigung
-                    if (!confirm('Alle aktuellen Daten werden überschrieben. Fortfahren?')) {
-                        return;
-                    }
-
-                    // Daten importieren
-                    this.store.clearAll();
-
-                    if (data.workouts) {
-                        data.workouts.forEach(workout => {
-                            this.store.saveWorkout(workout);
-                        });
-                    }
-
-                    if (data.exercises) {
-                        data.exercises.forEach(exercise => {
-                            this.store.saveExercise(exercise);
-                        });
-                    }
-
-                    if (data.sessions) {
-                        data.sessions.forEach(session => {
-                            this.store.saveSession(session);
-                        });
-                    }
-
-                    if (data.features) {
-                        this.features = data.features;
-                        this.saveFeatureFlags();
-                    }
-
-                    this.modules.ui.showToast('Daten importiert!', 'success');
-                    this.modules.ui.closeModal();
-
-                    // Seite neu laden
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1000);
-
-                } catch (error) {
-                    console.error('Import-Fehler:', error);
-                    this.modules.ui.showToast('Fehler beim Importieren: ' + error.message, 'error');
-                }
-            };
-
-            reader.readAsText(file);
-        });
-
-        input.click();
-    }
-
-    /**
-     * ========================================
-     * Sound Effects
+     * Audio-Context & Sound Effects
      * ========================================
      */
 
-
-
-    /**
-     * Audio-Context initialisieren (für Browser-Kompatibilität)
-     */
     /**
      * Audio-Context initialisieren (nach User-Interaktion)
      */
@@ -728,8 +530,6 @@ class FitnessApp {
 
         console.log('🔊 Audio-System bereit (wartet auf User-Interaktion)');
     }
-
-
 
     /**
      * Sound abspielen
@@ -834,21 +634,11 @@ class FitnessApp {
         }
     }
 
-
     /**
      * ========================================
      * Utility Methods
      * ========================================
      */
-
-    /**
-     * Feature-Flag prüfen
-     * @param {string} feature - Feature-Name
-     * @returns {boolean}
-     */
-    isFeatureEnabled(feature) {
-        return this.features[feature] || false;
-    }
 
     /**
      * Debug-Informationen ausgeben
@@ -895,4 +685,5 @@ function initApp() {
 
 // Export für Module
 export { EventBus, FitnessApp };
+
 

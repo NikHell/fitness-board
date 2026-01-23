@@ -6,13 +6,11 @@
  * - Trainings-Übersicht
  * - Fortschritts-Tracking
  * - Persönliche Rekorde
- * - Volumen-Analyse
  * - Charts & Diagramme
  */
 
 import { formatDate, formatNumber, percentage, groupBy, sortBy } from '../utils.js';
-import { VolumeAnalysis } from './volumeAnalysis.js';  // ✅ RICHTIG!
-
+// ❌ ENTFERNT: import { VolumeAnalysis } from './volumeAnalysis.js';
 
 export class StatsModule {
     constructor(store, eventBus) {
@@ -26,8 +24,7 @@ export class StatsModule {
         this.selectedPeriod = 'all'; // all, week, month, year
         this.selectedExercise = null;
 
-        // Volume Analysis ← NEU!
-        this.volumeAnalysis = new VolumeAnalysis(store);
+        // ❌ ENTFERNT: this.volumeAnalysis = new VolumeAnalysis(store);
     }
 
     /**
@@ -86,15 +83,15 @@ export class StatsModule {
             <div class="stats-container">
                 ${this.renderPeriodFilter()}
                 ${this.renderOverviewStats(sessions)}
-                ${this.volumeAnalysis.render(sessions)}  ← NEU! Intelligente Volumen-Analyse
                 ${this.renderRecentTrainings(sessions)}
                 ${this.renderPersonalRecords()}
                 ${this.renderVolumeChart(sessions)}
+                ${this.renderVolumeByMuscleGroup(sessions)}
                 ${this.renderExerciseStats()}
             </div>
         `;
 
-
+        // ❌ ENTFERNT: ${this.volumeAnalysis.render(sessions)}
 
         // Event-Listener
         this.attachStatsListeners();
@@ -305,7 +302,6 @@ export class StatsModule {
         `;
     }
 
-
     /**
      * Volumen nach Muskelgruppen rendern
      * @param {Array} sessions - Training Sessions
@@ -388,7 +384,7 @@ export class StatsModule {
                 </div>
             </div>
         </div>
-    `;
+        `;
     }
 
     /**
@@ -409,7 +405,7 @@ export class StatsModule {
         // Finde untertrainierte Muskelgruppen
         const undertrainedMuscles = sorted.filter(([_, vol]) => {
             const percent = (vol / totalVolume) * 100;
-            return percent < 15; // Weniger als 15% des Gesamtvolumens
+            return percent < 15;
         });
 
         let recommendations = [];
@@ -439,7 +435,6 @@ export class StatsModule {
             ? recommendations.join(' ')
             : 'Trainiere weiter so! 🎯';
     }
-
 
     /**
      * Übungs-Statistiken rendern
@@ -524,28 +519,10 @@ export class StatsModule {
             });
         });
 
-        // Profil-Einstellungen
-        const saveProfileBtn = document.getElementById('saveProfileBtn');
-        if (saveProfileBtn) {
-            saveProfileBtn.addEventListener('click', () => {
-                const profile = {
-                    experience: document.getElementById('profileExperience').value,
-                    frequency: parseInt(document.getElementById('profileFrequency').value),
-                    goals: document.getElementById('profileGoals').value
-                };
-
-                this.volumeAnalysis.saveUserProfile(profile);
-
-                this.eventBus.emit('showToast', {
-                    message: '✅ Profil gespeichert! Bereiche wurden angepasst.',
-                    type: 'success'
-                });
-
-                this.render();
-            });
-        }
+        // ❌ ENTFERNT: Profil-Einstellungen Event-Listener
+        // const saveProfileBtn = document.getElementById('saveProfileBtn');
+        // if (saveProfileBtn) { ... }
     }
-
 
     /**
      * ========================================
@@ -587,7 +564,6 @@ export class StatsModule {
                     <label class="form-label">Übungen</label>
                     ${session.exercises?.map(ex => {
             const exercise = this.store.getExercise(ex.exerciseId);
-            const completedSets = ex.sets.filter(s => s.completed).length;
             const exVolume = ex.sets.reduce((sum, set) =>
                 set.completed ? sum + (set.weight * set.reps) : sum, 0
             );
@@ -638,22 +614,12 @@ export class StatsModule {
      * ========================================
      */
 
-    /**
-     * Gesamtvolumen berechnen
-     * @param {Array} sessions - Training Sessions
-     * @returns {number}
-     */
     calculateTotalVolume(sessions) {
         return sessions.reduce((total, session) => {
             return total + this.calculateSessionVolume(session);
         }, 0);
     }
 
-    /**
-     * Session-Volumen berechnen
-     * @param {Object} session - Training Session
-     * @returns {number}
-     */
     calculateSessionVolume(session) {
         if (!session.exercises) return 0;
 
@@ -664,22 +630,12 @@ export class StatsModule {
         }, 0);
     }
 
-    /**
-     * Gesamtanzahl Sets berechnen
-     * @param {Array} sessions - Training Sessions
-     * @returns {number}
-     */
     calculateTotalSets(sessions) {
         return sessions.reduce((total, session) => {
             return total + this.calculateSessionSets(session);
         }, 0);
     }
 
-    /**
-     * Session-Sets berechnen
-     * @param {Object} session - Training Session
-     * @returns {number}
-     */
     calculateSessionSets(session) {
         if (!session.exercises) return 0;
 
@@ -688,11 +644,6 @@ export class StatsModule {
         }, 0);
     }
 
-    /**
-     * Durchschnittliche Trainings-Dauer berechnen
-     * @param {Array} sessions - Training Sessions
-     * @returns {number} Minuten
-     */
     calculateAverageDuration(sessions) {
         if (sessions.length === 0) return 0;
 
@@ -709,10 +660,6 @@ export class StatsModule {
      * ========================================
      */
 
-    /**
-     * Gefilterte Sessions abrufen
-     * @returns {Array}
-     */
     getFilteredSessions() {
         const allSessions = this.store.getTrainingSessions();
 
@@ -741,11 +688,6 @@ export class StatsModule {
         });
     }
 
-    /**
-     * Sessions nach Datum gruppieren
-     * @param {Array} sessions - Training Sessions
-     * @returns {Object}
-     */
     groupSessionsByDate(sessions) {
         const grouped = {};
 
@@ -758,308 +700,5 @@ export class StatsModule {
         });
 
         return grouped;
-    }
-
-    /**
-     * ========================================
-     * Fortschritts-Analyse
-     * ========================================
-     */
-
-    /**
-     * Fortschritt für Übung berechnen
-     * @param {string} exerciseId - Exercise ID
-     * @returns {Object}
-     */
-    calculateExerciseProgress(exerciseId) {
-        const sessions = this.store.getTrainingSessions();
-        const exerciseSessions = [];
-
-        sessions.forEach(session => {
-            session.exercises?.forEach(ex => {
-                if (ex.exerciseId === exerciseId) {
-                    exerciseSessions.push({
-                        date: session.date,
-                        sets: ex.sets.filter(s => s.completed)
-                    });
-                }
-            });
-        });
-
-        if (exerciseSessions.length === 0) {
-            return null;
-        }
-
-        // Sortiere nach Datum
-        exerciseSessions.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        // Erste und letzte Session
-        const first = exerciseSessions[0];
-        const last = exerciseSessions[exerciseSessions.length - 1];
-
-        // Durchschnittliches Gewicht
-        const firstAvgWeight = this.calculateAverageWeight(first.sets);
-        const lastAvgWeight = this.calculateAverageWeight(last.sets);
-
-        // Progression
-        const progression = lastAvgWeight > firstAvgWeight
-            ? ((lastAvgWeight - firstAvgWeight) / firstAvgWeight * 100).toFixed(1)
-            : 0;
-
-        return {
-            firstSession: first,
-            lastSession: last,
-            firstAvgWeight,
-            lastAvgWeight,
-            progression,
-            totalSessions: exerciseSessions.length
-        };
-    }
-
-    /**
-     * Durchschnittsgewicht berechnen
-     * @param {Array} sets - Sets
-     * @returns {number}
-     */
-    calculateAverageWeight(sets) {
-        if (sets.length === 0) return 0;
-
-        const totalWeight = sets.reduce((sum, set) => sum + set.weight, 0);
-        return totalWeight / sets.length;
-    }
-
-    /**
-     * ========================================
-     * Muskelgruppen-Analyse
-     * ========================================
-     */
-
-    /**
-     * Trainings nach Muskelgruppe
-     * @returns {Object}
-     */
-    getTrainingsByMuscleGroup() {
-        const sessions = this.store.getTrainingSessions();
-        const muscleGroups = {};
-
-        sessions.forEach(session => {
-            session.exercises?.forEach(ex => {
-                const exercise = this.store.getExercise(ex.exerciseId);
-                if (!exercise) return;
-
-                const muscle = exercise.muscleGroup;
-                if (!muscleGroups[muscle]) {
-                    muscleGroups[muscle] = {
-                        count: 0,
-                        volume: 0,
-                        sets: 0
-                    };
-                }
-
-                muscleGroups[muscle].count++;
-
-                ex.sets.forEach(set => {
-                    if (set.completed) {
-                        muscleGroups[muscle].volume += set.weight * set.reps;
-                        muscleGroups[muscle].sets++;
-                    }
-                });
-            });
-        });
-
-        return muscleGroups;
-    }
-
-    /**
-     * ========================================
-     * Export-Funktionen
-     * ========================================
-     */
-
-    /**
-     * Statistiken als CSV exportieren
-     */
-    exportStatsAsCSV() {
-        const sessions = this.store.getTrainingSessions();
-
-        let csv = 'Datum,Workout,Übung,Set,Gewicht,Wiederholungen,Volumen\n';
-
-        sessions.forEach(session => {
-            const workout = this.store.getWorkout(session.workoutId);
-            const date = formatDate(session.date, 'YYYY-MM-DD');
-
-            session.exercises?.forEach(ex => {
-                const exercise = this.store.getExercise(ex.exerciseId);
-
-                ex.sets.forEach((set, index) => {
-                    if (set.completed) {
-                        const volume = set.weight * set.reps;
-                        csv += `${date},${workout?.name || 'Unbekannt'},${exercise?.name || 'Unbekannt'},${index + 1},${set.weight},${set.reps},${volume}\n`;
-                    }
-                });
-            });
-        });
-
-        // Download
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `fitness-stats-${formatDate(new Date(), 'YYYY-MM-DD')}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        this.eventBus.emit('showToast', {
-            message: 'Statistiken exportiert!',
-            type: 'success'
-        });
-    }
-
-    /**
-     * ========================================
-     * Ziele & Milestones
-     * ========================================
-     */
-
-    /**
-     * Nächste Milestones berechnen
-     * @returns {Array}
-     */
-    getNextMilestones() {
-        const totalTrainings = this.store.getTotalTrainings();
-        const totalVolume = this.store.getTotalVolume();
-        const streak = this.store.getTrainingStreak();
-
-        const milestones = [];
-
-        // Trainings-Milestones
-        const trainingMilestones = [10, 25, 50, 100, 250, 500];
-        const nextTrainingMilestone = trainingMilestones.find(m => m > totalTrainings);
-        if (nextTrainingMilestone) {
-            milestones.push({
-                type: 'trainings',
-                icon: '🏋️',
-                current: totalTrainings,
-                target: nextTrainingMilestone,
-                label: 'Trainings',
-                progress: percentage(totalTrainings, nextTrainingMilestone)
-            });
-        }
-
-        // Volumen-Milestones (in Tonnen)
-        const volumeTons = Math.floor(totalVolume / 1000);
-        const volumeMilestones = [1, 5, 10, 25, 50, 100];
-        const nextVolumeMilestone = volumeMilestones.find(m => m > volumeTons);
-        if (nextVolumeMilestone) {
-            milestones.push({
-                type: 'volume',
-                icon: '💪',
-                current: volumeTons,
-                target: nextVolumeMilestone,
-                label: 'Tonnen',
-                progress: percentage(volumeTons, nextVolumeMilestone)
-            });
-        }
-
-        // Streak-Milestones
-        const streakMilestones = [7, 14, 30, 60, 100, 365];
-        const nextStreakMilestone = streakMilestones.find(m => m > streak);
-        if (nextStreakMilestone) {
-            milestones.push({
-                type: 'streak',
-                icon: '🔥',
-                current: streak,
-                target: nextStreakMilestone,
-                label: 'Tage Streak',
-                progress: percentage(streak, nextStreakMilestone)
-            });
-        }
-
-        return milestones;
-    }
-
-    /**
-     * ========================================
-     * Utility-Methoden
-     * ========================================
-     */
-
-    /**
-     * Beste Woche finden
-     * @returns {Object|null}
-     */
-    getBestWeek() {
-        const sessions = this.store.getTrainingSessions();
-        if (sessions.length === 0) return null;
-
-        // Gruppiere nach Woche
-        const weeks = {};
-        sessions.forEach(session => {
-            const date = new Date(session.date);
-            const weekStart = new Date(date);
-            weekStart.setDate(date.getDate() - date.getDay());
-            const weekKey = formatDate(weekStart, 'YYYY-MM-DD');
-
-            if (!weeks[weekKey]) {
-                weeks[weekKey] = [];
-            }
-            weeks[weekKey].push(session);
-        });
-
-        // Finde Woche mit höchstem Volumen
-        let bestWeek = null;
-        let maxVolume = 0;
-
-        Object.entries(weeks).forEach(([weekKey, weekSessions]) => {
-            const volume = this.calculateTotalVolume(weekSessions);
-            if (volume > maxVolume) {
-                maxVolume = volume;
-                bestWeek = {
-                    week: weekKey,
-                    sessions: weekSessions.length,
-                    volume
-                };
-            }
-        });
-
-        return bestWeek;
-    }
-
-    /**
-     * Konsistenz-Score berechnen (0-100)
-     * @returns {number}
-     */
-    getConsistencyScore() {
-        const sessions = this.store.getTrainingSessions();
-        if (sessions.length === 0) return 0;
-
-        // Letzte 30 Tage
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const recentSessions = sessions.filter(s =>
-            new Date(s.date) >= thirtyDaysAgo
-        );
-
-        // Ideale Anzahl: 3-4 Trainings pro Woche = 12-16 pro Monat
-        const ideal = 14;
-        const score = Math.min((recentSessions.length / ideal) * 100, 100);
-
-        return Math.round(score);
-    }
-
-    /**
-     * Trainings-Frequenz berechnen (Trainings pro Woche)
-     * @returns {number}
-     */
-    getTrainingFrequency() {
-        const sessions = this.store.getTrainingSessions();
-        if (sessions.length === 0) return 0;
-
-        const firstSession = new Date(sessions[sessions.length - 1].date);
-        const lastSession = new Date(sessions[0].date);
-        const weeks = Math.max(1, Math.ceil((lastSession - firstSession) / (7 * 24 * 60 * 60 * 1000)));
-
-        return (sessions.length / weeks).toFixed(1);
     }
 }
