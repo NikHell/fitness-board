@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Fitness Board Icon Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 40px;
+        }
+
+        .designs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .design-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .design-card:hover {
+            transform: translateY(-5px);
+            border-color: #0f3460;
+            box-shadow: 0 10px 30px rgba(15, 52, 96, 0.3);
+        }
+
+        .design-card h3 {
+            margin-bottom: 15px;
+            color: #0f3460;
+        }
+
+        .preview-canvas {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(15, 52, 96, 0.4);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .success {
+            background: #27ae60;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎨 Fitness Board Icon Generator</h1>
+    <p class="subtitle">Wählen Sie ein Design und generieren Sie professionelle App-Icons</p>
+
+    <div class="designs" id="designs"></div>
+
+    <div class="success" id="success">
+        ✅ Icons erfolgreich generiert! Speichern Sie sie im <code>icons/</code> Ordner.
+    </div>
+</div>
+
+<script>
+    const designs = [
+        {
+            name: 'Hantel Classic',
+            id: 'dumbbell',
+            draw: (ctx, size) => {
+                // Gradient Hintergrund
+                const gradient = ctx.createLinearGradient(0, 0, size, size);
+                gradient.addColorStop(0, '#0f3460');
+                gradient.addColorStop(1, '#16213e');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+
+                // Hantel zeichnen
+                const centerX = size / 2;
+                const centerY = size / 2;
+                const barWidth = size * 0.5;
+                const barHeight = size * 0.08;
+                const plateWidth = size * 0.12;
+                const plateHeight = size * 0.3;
+
+                ctx.fillStyle = '#ffffff';
+
+                // Stange
+                ctx.fillRect(centerX - barWidth/2, centerY - barHeight/2, barWidth, barHeight);
+
+                // Gewichtsscheiben links
+                ctx.fillRect(centerX - barWidth/2 - plateWidth, centerY - plateHeight/2, plateWidth, plateHeight);
+                ctx.fillRect(centerX - barWidth/2 - plateWidth*2, centerY - plateHeight*0.8/2, plateWidth, plateHeight*0.8);
+
+                // Gewichtsscheiben rechts
+                ctx.fillRect(centerX + barWidth/2, centerY - plateHeight/2, plateWidth, plateHeight);
+                ctx.fillRect(centerX + barWidth/2 + plateWidth, centerY - plateHeight*0.8/2, plateWidth, plateHeight*0.8);
+            }
+        },
+        {
+            name: 'Muskel Power',
+            id: 'muscle',
+            draw: (ctx, size) => {
+                // Gradient Hintergrund
+                const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                gradient.addColorStop(0, '#16213e');
+                gradient.addColorStop(1, '#0f3460');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+
+                // Bizeps-Form
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+
+                const centerX = size / 2;
+                const centerY = size / 2;
+                const armWidth = size * 0.6;
+
+                // Arm-Kontur (vereinfacht)
+                ctx.arc(centerX, centerY - size*0.1, size*0.25, 0, Math.PI, true);
+                ctx.arc(centerX - size*0.15, centerY + size*0.05, size*0.15, Math.PI*0.3, Math.PI*1.2);
+                ctx.arc(centerX + size*0.15, centerY + size*0.05, size*0.15, Math.PI*1.8, Math.PI*2.7);
+
+                ctx.fill();
+
+                // "FB" Text
+                ctx.fillStyle = '#0f3460';
+                ctx.font = `bold ${size * 0.2}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('FB', centerX, centerY);
+            }
+        },
+        {
+            name: 'Gradient Modern',
+            id: 'gradient',
+            draw: (ctx, size) => {
+                // Moderner Gradient
+                const gradient = ctx.createLinearGradient(0, 0, size, size);
+                gradient.addColorStop(0, '#667eea');
+                gradient.addColorStop(0.5, '#764ba2');
+                gradient.addColorStop(1, '#f093fb');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+
+                // Weißer Kreis
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.beginPath();
+                ctx.arc(size/2, size/2, size*0.35, 0, Math.PI*2);
+                ctx.fill();
+
+                // Icon-Text
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${size * 0.35}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('💪', size/2, size/2);
+            }
+        },
+        {
+            name: 'Minimalist Dark',
+            id: 'minimal',
+            draw: (ctx, size) => {
+                // Schwarzer Hintergrund
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, size, size);
+
+                // Weißer Rahmen
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = size * 0.02;
+                ctx.strokeRect(size*0.1, size*0.1, size*0.8, size*0.8);
+
+                // "F" Logo
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${size * 0.5}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('F', size/2, size/2);
+
+                // Kleines "B"
+                ctx.font = `bold ${size * 0.15}px Arial`;
+                ctx.fillText('B', size*0.7, size*0.7);
+            }
+        },
+        {
+            name: 'Neon Fitness',
+            id: 'neon',
+            draw: (ctx, size) => {
+                // Dunkler Hintergrund
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, size, size);
+
+                // Neon-Glow Effekt
+                ctx.shadowBlur = size * 0.05;
+                ctx.shadowColor = '#00ff88';
+
+                // Hantel in Neon
+                const centerX = size / 2;
+                const centerY = size / 2;
+
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = size * 0.04;
+                ctx.lineCap = 'round';
+
+                // Stange
+                ctx.beginPath();
+                ctx.moveTo(centerX - size*0.3, centerY);
+                ctx.lineTo(centerX + size*0.3, centerY);
+                ctx.stroke();
+
+                // Gewichte
+                ctx.fillStyle = '#00ff88';
+                ctx.fillRect(centerX - size*0.35, centerY - size*0.15, size*0.08, size*0.3);
+                ctx.fillRect(centerX + size*0.27, centerY - size*0.15, size*0.08, size*0.3);
+
+                ctx.shadowBlur = 0;
+            }
+        },
+        {
+            name: 'Kettlebell',
+            id: 'kettlebell',
+            draw: (ctx, size) => {
+                // Gradient Hintergrund
+                const gradient = ctx.createLinearGradient(0, 0, 0, size);
+                gradient.addColorStop(0, '#2c3e50');
+                gradient.addColorStop(1, '#34495e');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+
+                const centerX = size / 2;
+                const centerY = size / 2;
+
+                ctx.fillStyle = '#ecf0f1';
+
+                // Griff
+                ctx.beginPath();
+                ctx.arc(centerX, centerY - size*0.15, size*0.15, Math.PI, 0, false);
+                ctx.lineWidth = size * 0.05;
+                ctx.strokeStyle = '#ecf0f1';
+                ctx.stroke();
+
+                // Kugel
+                ctx.beginPath();
+                ctx.arc(centerX, centerY + size*0.1, size*0.25, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+    ];
+
+    // Designs rendern
+    const designsContainer = document.getElementById('designs');
+
+    designs.forEach(design => {
+        const card = document.createElement('div');
+        card.className = 'design-card';
+
+        const title = document.createElement('h3');
+        title.textContent = design.name;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        canvas.className = 'preview-canvas';
+
+        const ctx = canvas.getContext('2d');
+        design.draw(ctx, 512);
+
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'btn-group';
+
+        const btn192 = document.createElement('button');
+        btn192.className = 'btn';
+        btn192.textContent = '192px';
+        btn192.onclick = () => downloadIcon(design, 192);
+
+        const btn512 = document.createElement('button');
+        btn512.className = 'btn';
+        btn512.textContent = '512px';
+        btn512.onclick = () => downloadIcon(design, 512);
+
+        const btnBoth = document.createElement('button');
+        btnBoth.className = 'btn';
+        btnBoth.textContent = 'Beide ⬇️';
+        btnBoth.onclick = () => {
+            downloadIcon(design, 192);
+            setTimeout(() => downloadIcon(design, 512), 500);
+        };
+
+        btnGroup.appendChild(btn192);
+        btnGroup.appendChild(btn512);
+        btnGroup.appendChild(btnBoth);
+
+        card.appendChild(title);
+        card.appendChild(canvas);
+        card.appendChild(btnGroup);
+
+        designsContainer.appendChild(card);
+    });
+
+    function downloadIcon(design, size) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        design.draw(ctx, size);
+
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `icon-${size}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            // Success-Nachricht
+            const success = document.getElementById('success');
+            success.style.display = 'block';
+            setTimeout(() => {
+                success.style.display = 'none';
+            }, 3000);
+        });
+    }
+</script>
+</body>
+</html>

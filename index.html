@@ -4,6 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fitness Board</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#0f3460">
+
+    <!-- iOS Spezifisch - WICHTIG für iPhone! -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fitness Board">
+
+    <!-- Apple Touch Icons - MEHRERE GRÖSSEN -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-512.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-512.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-512.png">
+    <link rel="apple-touch-icon" href="/icons/icon-512.png">
+
+    <!-- Standard Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-192.png">
+
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -14,6 +36,7 @@
         <button class="nav-btn active" data-view="workouts">Workouts</button>
         <button class="nav-btn" data-view="training">Training</button>
         <button class="nav-btn" data-view="timer">Timer</button>
+        <button class="nav-btn" data-view="recovery">Regeneration</button>
         <button class="nav-btn" data-view="stats">Statistiken</button>
     </div>
     <button class="settings-btn" id="settingsBtn">⚙️</button>
@@ -73,6 +96,56 @@
             <div class="timer-presets" id="timerPresets">
                 <!-- Wird dynamisch gefüllt -->
             </div>
+        </div>
+    </div>
+
+    <!-- Recovery View -->
+    <div id="recovery-view" class="view">
+        <div class="view-header">
+            <h1>🔄 Regeneration</h1>
+        </div>
+
+        <!-- Recovery Score -->
+        <div class="recovery-score-card">
+            <div class="score-circle" id="recoveryScoreCircle">
+                <div class="score-value" id="recoveryScoreValue">--</div>
+                <div class="score-label">Regeneration</div>
+            </div>
+            <div class="score-status" id="recoveryStatus">Wird berechnet...</div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="recovery-stats">
+            <div class="stat-card">
+                <div class="stat-icon">📅</div>
+                <div class="stat-value" id="consecutiveDays">0</div>
+                <div class="stat-label">Tage in Folge</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📉</div>
+                <div class="stat-value" id="weeksSinceDeload">0</div>
+                <div class="stat-label">Wochen seit Deload</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💪</div>
+                <div class="stat-value" id="weeklyVolume">0</div>
+                <div class="stat-label">Wöchentliches Volumen</div>
+            </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="recommendations-section">
+            <h3>💡 Empfehlungen</h3>
+            <div id="recommendationsList" class="recommendations-list">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+
+        <!-- Deload Button -->
+        <div class="deload-section">
+            <button class="btn btn-primary" id="markDeloadBtn">
+                📉 Deload-Woche markieren
+            </button>
         </div>
     </div>
 

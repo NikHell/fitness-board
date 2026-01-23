@@ -841,7 +841,13 @@ export class WorkoutModule {
      * @param {string} workoutId - Workout ID
      */
     startTraining(workoutId) {
+        console.log('🏋️ Starte Training:', workoutId);
+
+        // Training-Event feuern
         this.eventBus.emit('startTraining', { workoutId });
+
+        // Zur Training-View wechseln
+        this.eventBus.emit('navigateTo', { view: 'training' });
     }
 }
 

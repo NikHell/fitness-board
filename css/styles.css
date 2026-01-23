@@ -794,6 +794,294 @@ body {
     opacity: 0.6;
 }
 
+/**
+ * ========================================
+ * RECOVERY VIEW
+ * ========================================
+ */
+
+/* Recovery Score Card */
+.recovery-score-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.score-circle {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 8px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.score-circle::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 50%;
+    border: 8px solid transparent;
+    transition: all 0.5s ease;
+}
+
+/* Score Colors */
+.score-circle.excellent::before {
+    border-top-color: #27ae60;
+    border-right-color: #27ae60;
+    transform: rotate(0deg);
+}
+
+.score-circle.good::before {
+    border-top-color: #2ecc71;
+    border-right-color: #2ecc71;
+    transform: rotate(0deg);
+}
+
+.score-circle.moderate::before {
+    border-top-color: #f39c12;
+    transform: rotate(0deg);
+}
+
+.score-circle.poor::before {
+    border-top-color: #e74c3c;
+    transform: rotate(0deg);
+}
+
+.score-circle.critical::before {
+    border-top-color: #c0392b;
+    transform: rotate(0deg);
+}
+
+.score-value {
+    font-size: 4rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+}
+
+.score-label {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.score-status {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+    margin-top: 10px;
+}
+
+/* Recovery Stats Grid */
+.recovery-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    border-radius: 15px;
+    padding: 25px;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary-color);
+    box-shadow: 0 10px 25px rgba(15, 52, 96, 0.2);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Recommendations Section */
+.recommendations-section {
+    background: var(--card-bg);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.recommendations-section h3 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+}
+
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.recommendation-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    border-left: 4px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.recommendation-item:hover {
+    transform: translateX(5px);
+}
+
+.recommendation-item.priority-high {
+    border-left-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.recommendation-item.priority-medium {
+    border-left-color: #f39c12;
+    background: rgba(243, 156, 18, 0.1);
+}
+
+.recommendation-item.priority-low {
+    border-left-color: #27ae60;
+    background: rgba(39, 174, 96, 0.1);
+}
+
+.recommendation-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.recommendation-text {
+    flex: 1;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+/* Deload Section */
+.deload-section {
+    text-align: center;
+    padding: 20px;
+}
+
+.deload-section .btn {
+    font-size: 1.1rem;
+    padding: 15px 40px;
+}
+
+/* Empty State */
+.recovery-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.recovery-empty-icon {
+    font-size: 5rem;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.recovery-empty h3 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+
+.recovery-empty p {
+    font-size: 1rem;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.score-circle.critical {
+    animation: pulse 2s infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .recovery-score-card {
+        padding: 30px 20px;
+    }
+
+    .score-circle {
+        width: 160px;
+        height: 160px;
+    }
+
+    .score-value {
+        font-size: 3rem;
+    }
+
+    .score-status {
+        font-size: 1.2rem;
+    }
+
+    .recovery-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        padding: 20px;
+    }
+}
+
+/* Dark Mode Adjustments */
+body.dark-mode .stat-card {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .recommendation-item {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-mode .recommendations-section {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+
 /* ========================================
    Training Session
    ======================================== */

@@ -11,6 +11,7 @@ import { WorkoutModule } from './modules/workout.js';
 import { TrainingModule } from './modules/training.js';
 import { TimerModule } from './modules/timer.js';
 import { StatsModule } from './modules/stats.js';
+import { RecoveryModule } from './modules/recovery.js';
 import { UI } from './modules/ui.js';
 import { formatDate, generateId } from './utils.js';
 
@@ -78,6 +79,7 @@ class FitnessApp {
             workout: new WorkoutModule(this.store, this.eventBus),
             training: new TrainingModule(this.store, this.eventBus),
             timer: new TimerModule(this.store, this.eventBus),
+            recovery: new RecoveryModule(this.store, this.eventBus),
             stats: new StatsModule(this.store, this.eventBus),
             ui: new UI(this.store, this.eventBus)
         };
@@ -103,6 +105,12 @@ class FitnessApp {
     init() {
         console.log('🚀 Fitness Board wird initialisiert...');
 
+        // Service Worker registrieren (PWA) - NEU!
+        this.registerServiceWorker();
+
+        // Audio-Context initialisieren - NEU!
+        this.initAudioContext();
+
         // Navigation Setup
         this.setupNavigation();
 
@@ -120,6 +128,57 @@ class FitnessApp {
 
         console.log('✅ Fitness Board bereit!');
     }
+
+
+    /**
+     * ========================================
+     * PWA - Service Worker
+     * ========================================
+     */
+
+    /**
+     * Service Worker registrieren
+     */
+    registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registriert:', registration.scope);
+
+                        // Update-Check
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Neue Version verfügbar
+                                    this.showUpdateNotification();
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('❌ Service Worker Registrierung fehlgeschlagen:', error);
+                    });
+            });
+        } else {
+            console.warn('⚠️ Service Worker wird nicht unterstützt');
+        }
+    }
+
+    /**
+     * Update-Benachrichtigung anzeigen
+     */
+    showUpdateNotification() {
+        if (this.eventBus) {
+            this.eventBus.emit('showToast', {
+                message: '🔄 Neue Version verfügbar! Seite neu laden?',
+                type: 'info',
+                duration: 10000
+            });
+        }
+    }
+
 
     /**
      * ========================================
@@ -179,6 +238,9 @@ class FitnessApp {
             case 'timer':
                 this.modules.timer.render();
                 break;
+            case 'recovery':
+                this.modules.recovery.render();
+                break;
             case 'stats':
                 this.modules.stats.render();
                 break;
@@ -210,6 +272,12 @@ class FitnessApp {
         // Window Events
         window.addEventListener('beforeunload', () => {
             this.saveFeatureFlags();
+        });
+
+        // Navigation-Event
+        this.eventBus.on('navigateTo', (data) => {
+            console.log('🔄 Navigation zu:', data.view);
+            this.showView(data.view);
         });
     }
 
@@ -264,6 +332,30 @@ class FitnessApp {
             console.error('❌ Fehler:', data.message);
             this.modules.ui.showToast(data.message, 'error');
         });
+
+        // Recovery-Warnungen
+        this.eventBus.on('lowRecovery', (data) => {
+            this.modules.ui.showToast(
+                `⚠️ Niedriger Regenerations-Score: ${data.score}%. Ruhetag empfohlen!`,
+                'warning',
+                8000
+            );
+        });
+
+        this.eventBus.on('deloadRecommended', (data) => {
+            this.modules.ui.showToast(
+                `📉 Deload-Woche empfohlen! Grund: ${data.reason}`,
+                'info',
+                10000
+            );
+        });
+
+        // Recovery-View neu rendern nach Deload
+        this.eventBus.on('deloadMarked', () => {
+            if (this.currentView === 'recovery') {
+                this.modules.recovery.render();
+            }
+        });
     }
 
     /**
@@ -280,6 +372,9 @@ class FitnessApp {
 
         // Timer-Modul
         this.modules.timer.init();
+
+        // Recovery-Modul
+        this.modules.recovery.init();
 
         // Stats-Modul
         this.modules.stats.init();
@@ -584,50 +679,161 @@ class FitnessApp {
      * Sound Effects
      * ========================================
      */
+
+
+
+    /**
+     * Audio-Context initialisieren (für Browser-Kompatibilität)
+     */
+    /**
+     * Audio-Context initialisieren (nach User-Interaktion)
+     */
+    initAudioContext() {
+        this.audioContext = null;
+        this.audioInitialized = false;
+
+        // Funktion zum Initialisieren
+        const initAudio = () => {
+            if (this.audioInitialized) return;
+
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.audioContext = new AudioContext();
+
+                // Context starten
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().then(() => {
+                        console.log('✅ Audio-Context gestartet:', this.audioContext.state);
+                        this.audioInitialized = true;
+                    });
+                } else {
+                    console.log('✅ Audio-Context bereit:', this.audioContext.state);
+                    this.audioInitialized = true;
+                }
+
+                // Event-Listener entfernen
+                document.removeEventListener('click', initAudio);
+                document.removeEventListener('touchstart', initAudio);
+                document.removeEventListener('keydown', initAudio);
+
+            } catch (e) {
+                console.error('❌ Audio-Context Fehler:', e);
+            }
+        };
+
+        // Auf User-Interaktion warten
+        document.addEventListener('click', initAudio, { once: true });
+        document.addEventListener('touchstart', initAudio, { once: true });
+        document.addEventListener('keydown', initAudio, { once: true });
+
+        console.log('🔊 Audio-System bereit (wartet auf User-Interaktion)');
+    }
+
+
+
+    /**
+     * Sound abspielen
+     */
     playSound(soundType) {
-        if (!this.features.soundEffects) return;
+        if (!this.features.soundEffects) {
+            console.log('🔇 Sound-Effekte deaktiviert');
+            return;
+        }
 
-        // Web Audio API für Sound-Effekte
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        console.log('🔊 Versuche Sound abzuspielen:', soundType);
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        // Audio-Context prüfen
+        if (!this.audioContext) {
+            console.warn('⚠️ Audio-Context noch nicht initialisiert. Klicken Sie irgendwo auf die Seite.');
 
-        switch(soundType) {
-            case 'setComplete':
-                // Kurzer Beep
-                oscillator.frequency.value = 800;
-                gainNode.gain.value = 0.3;
-                oscillator.start();
-                oscillator.stop(audioContext.currentTime + 0.1);
-                break;
+            // Versuche zu initialisieren
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.audioContext = new AudioContext();
+            } catch (e) {
+                console.error('❌ Kann Audio-Context nicht erstellen:', e);
+                return;
+            }
+        }
 
-            case 'timerEnd':
-                // Längerer Ton
-                oscillator.frequency.value = 1000;
-                gainNode.gain.value = 0.5;
-                oscillator.start();
-                oscillator.stop(audioContext.currentTime + 0.5);
-                break;
-
-            case 'trainingComplete':
-                // Erfolgs-Melodie
-                const frequencies = [523, 659, 784, 1047]; // C, E, G, C
-                frequencies.forEach((freq, i) => {
-                    const osc = audioContext.createOscillator();
-                    const gain = audioContext.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioContext.destination);
-                    osc.frequency.value = freq;
-                    gain.gain.value = 0.3;
-                    osc.start(audioContext.currentTime + (i * 0.15));
-                    osc.stop(audioContext.currentTime + (i * 0.15) + 0.1);
-                });
-                break;
+        // Context fortsetzen falls suspended
+        if (this.audioContext.state === 'suspended') {
+            console.log('🔊 Audio-Context ist suspended, versuche fortzusetzen...');
+            this.audioContext.resume().then(() => {
+                console.log('✅ Audio-Context fortgesetzt');
+                this.playActualSound(soundType);
+            }).catch(e => {
+                console.error('❌ Fehler beim Fortsetzen:', e);
+            });
+        } else {
+            this.playActualSound(soundType);
         }
     }
+
+    /**
+     * Tatsächlichen Sound abspielen
+     */
+    playActualSound(soundType) {
+        if (!this.audioContext) {
+            console.error('❌ Kein Audio-Context verfügbar');
+            return;
+        }
+
+        console.log('🔊 Spiele Sound ab:', soundType, 'State:', this.audioContext.state);
+
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+
+            oscillator.type = 'sine';
+
+            const now = this.audioContext.currentTime;
+
+            switch(soundType) {
+                case 'setComplete':
+                    oscillator.frequency.value = 800;
+                    gainNode.gain.value = 0.3;
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.1);
+                    console.log('✅ Set Complete Sound gestartet');
+                    break;
+
+                case 'timerEnd':
+                    oscillator.frequency.value = 1000;
+                    gainNode.gain.value = 0.5;
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.5);
+                    console.log('✅ Timer End Sound gestartet');
+                    break;
+
+                case 'trainingComplete':
+                    const frequencies = [523, 659, 784, 1047];
+                    frequencies.forEach((freq, i) => {
+                        const osc = this.audioContext.createOscillator();
+                        const gain = this.audioContext.createGain();
+                        osc.connect(gain);
+                        gain.connect(this.audioContext.destination);
+                        osc.type = 'sine';
+                        osc.frequency.value = freq;
+                        gain.gain.value = 0.3;
+                        osc.start(now + (i * 0.15));
+                        osc.stop(now + (i * 0.15) + 0.1);
+                    });
+                    console.log('✅ Training Complete Sound gestartet');
+                    break;
+
+                default:
+                    console.warn('⚠️ Unbekannter Sound-Typ:', soundType);
+            }
+
+        } catch (e) {
+            console.error('❌ Fehler beim Sound abspielen:', e);
+        }
+    }
+
 
     /**
      * ========================================
