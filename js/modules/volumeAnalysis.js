@@ -1,42 +1,25 @@
 /**
  * ========================================
- * Volume Analysis Module
+ * Volume Analysis Module (ÜBERARBEITET!)
  * ========================================
- * Intelligente Volumen-Analyse mit:
- * - Trend-Analyse
- * - Muskelgruppen-Balance
- * - Optimale Bereiche
- * - Periodisierungs-Erkennung
- * - Prognosen
- * - Adaptive Empfehlungen
+ * Intelligente Volumen-Analyse basierend auf SETS, nicht kg!
+ *
+ * Wissenschaftliche Grundlagen:
+ * - Anfänger: 10-15 Sets/Woche pro Muskelgruppe
+ * - Fortgeschritten: 12-20 Sets/Woche
+ * - Profi: 15-25 Sets/Woche
+ *
+ * Kleinere Muskelgruppen (Bizeps, Trizeps): ~60% der großen Muskeln
+ * Schultern: ~80% der großen Muskeln
  */
-
-import { formatDate, formatNumber } from '../utils.js';
 
 export class VolumeAnalysis {
     constructor(store) {
         this.store = store;
-
-        // Optimale Volumen-Bereiche pro Muskelgruppe (kg/Woche)
-        this.optimalRanges = {
-            'Brust': { min: 30000, max: 50000 },
-            'Rücken': { min: 35000, max: 55000 },
-            'Beine': { min: 40000, max: 70000 },
-            'Schultern': { min: 20000, max: 35000 },
-            'Bizeps': { min: 10000, max: 20000 },
-            'Trizeps': { min: 10000, max: 20000 },
-            'Bauch': { min: 5000, max: 15000 }
-        };
     }
 
     /**
-     * ========================================
-     * BENUTZER-PROFIL & EINSTELLUNGEN
-     * ========================================
-     */
-
-    /**
-     * Lade Benutzer-Profil
+     * Benutzer-Profil laden
      */
     getUserProfile() {
         const saved = localStorage.getItem('userProfile');
@@ -44,917 +27,608 @@ export class VolumeAnalysis {
             return JSON.parse(saved);
         }
 
-        // Standard-Profil
         return {
-            experience: 'intermediate',  // beginner, intermediate, advanced
-            frequency: 3,                // Trainings pro Woche
-            goals: 'muscle_building'     // muscle_building, strength, endurance
+            experience: 'intermediate',
+            frequency: 3,
+            goals: 'muscle_building'
         };
     }
 
     /**
-     * Speichere Benutzer-Profil
+     * ========================================
+     * HAUPTANALYSE
+     * ========================================
      */
-    saveUserProfile(profile) {
-        localStorage.setItem('userProfile', JSON.stringify(profile));
-        this.updateOptimalRanges();
-    }
-
-    /**
-     * Aktualisiere optimale Bereiche basierend auf Profil
-     */
-    updateOptimalRanges() {
+    analyzeVolume(sessions) {
         const profile = this.getUserProfile();
 
-        // Basis-Multiplikatoren nach Erfahrung
-        const experienceMultipliers = {
-            'beginner': 0.5,      // 50% der Profi-Werte
-            'intermediate': 0.75, // 75% der Profi-Werte
-            'advanced': 1.0       // 100% (Profi)
-        };
+        console.log('🧠 Starte Volumen-Analyse...');
+        console.log('Profil:', profile);
 
-        // Frequenz-Multiplikatoren
-        const frequencyMultipliers = {
-            2: 0.7,  // 2× pro Woche: 70%
-            3: 1.0,  // 3× pro Woche: 100% (Standard)
-            4: 1.2,  // 4× pro Woche: 120%
-            5: 1.4,  // 5×+ pro Woche: 140%
-            6: 1.4,
-            7: 1.4
-        };
+        // Berechne SETS pro Muskelgruppe (letzte 7 Tage)
+        const volumeData = this.calculateWeeklySets(sessions);
 
-        const expMult = experienceMultipliers[profile.experience] || 0.75;
-        const freqMult = frequencyMultipliers[profile.frequency] || 1.0;
-        const totalMult = expMult * freqMult;
+        console.log('Wöchentliche Sets:', volumeData);
 
-        // Basis-Werte (für Profis mit 3× Training/Woche)
-        const baseRanges = {
-            'Brust': { min: 30000, max: 50000 },
-            'Rücken': { min: 35000, max: 55000 },
-            'Beine': { min: 40000, max: 70000 },
-            'Schultern': { min: 20000, max: 35000 },
-            'Bizeps': { min: 10000, max: 20000 },
-            'Trizeps': { min: 10000, max: 20000 },
-            'Bauch': { min: 5000, max: 15000 }
-        };
+        // Hole optimale Bereiche (in SETS!)
+        const optimalRanges = this.getOptimalSetRanges(profile);
 
-        // Passe Bereiche an
-        this.optimalRanges = {};
-        Object.entries(baseRanges).forEach(([muscle, range]) => {
-            this.optimalRanges[muscle] = {
-                min: Math.round(range.min * totalMult),
-                max: Math.round(range.max * totalMult)
+        console.log('Optimale Bereiche:', optimalRanges);
+
+        // Analysiere jede Muskelgruppe
+        const analysis = {};
+
+        Object.keys(volumeData).forEach(muscle => {
+            const data = volumeData[muscle];
+            const currentSets = data.sets;
+            const currentVolume = data.volume; // kg (nur für Info)
+            const optimal = optimalRanges[muscle] || optimalRanges.default;
+
+            let status = 'optimal';
+            let recommendation = null;
+            let warning = null;
+
+            // Zu wenig Sets
+            if (currentSets < optimal.min) {
+                status = 'low';
+                const deficit = optimal.min - currentSets;
+                const targetSets = Math.round((optimal.min + optimal.max) / 2);
+                recommendation = {
+                    type: 'increase',
+                    message: `Erhöhe auf ${optimal.min}-${optimal.max} Sets/Woche`,
+                    detail: `Füge ${deficit}-${targetSets - currentSets} Sets hinzu`,
+                    targetSets: targetSets
+                };
+            }
+            // Zu viele Sets
+            else if (currentSets > optimal.max) {
+                status = 'high';
+                const excess = currentSets - optimal.max;
+                warning = {
+                    type: 'overtraining',
+                    message: `⚠️ Möglicherweise zu viel Volumen!`,
+                    detail: `Reduziere um ${excess} Sets auf ${optimal.max} Sets/Woche`,
+                    risk: excess > 5 ? 'high' : 'medium'
+                };
+            }
+            // Optimal
+            else {
+                status = 'optimal';
+                recommendation = {
+                    type: 'maintain',
+                    message: `✅ Optimales Volumen!`,
+                    detail: `Halte ${currentSets} Sets/Woche bei`,
+                    targetSets: currentSets
+                };
+            }
+
+            analysis[muscle] = {
+                currentSets,
+                currentVolume, // kg (nur Info)
+                optimalMin: optimal.min,
+                optimalMax: optimal.max,
+                status,
+                recommendation,
+                warning,
+                exercises: data.exercises // Liste der Übungen
             };
         });
-    }
 
+        console.log('Analyse-Ergebnis:', analysis);
 
-    /**
-     * ========================================
-     * Haupt-Render-Methode
-     * ========================================
-     */
-
-    /**
-     * Komplette Volumen-Analyse rendern
-     * @param {Array} sessions - Training Sessions
-     * @returns {string} HTML
-     */
-    render(sessions) {
-        // Aktualisiere Bereiche basierend auf Profil
-        this.updateOptimalRanges();
-
-        if (!sessions || sessions.length === 0) {
-            return this.renderEmptyState();
-        }
-
-        return `
-            <div class="volume-analysis-container">
-                ${this.renderHeader()}
-                ${this.renderTrendAnalysis(sessions)}
-                ${this.renderMuscleGroupBalance(sessions)}
-                ${this.renderOptimalRanges(sessions)}
-                ${this.renderPeriodization(sessions)}
-                ${this.renderWarnings(sessions)}
-                ${this.renderRecommendations(sessions)}
-            </div>
-        `;
-    }
-
-    /**
-     * Empty State
-     */
-    renderEmptyState() {
-        return `
-            <div class="empty-state">
-                <div class="empty-state-icon">📊</div>
-                <div class="empty-state-title">Nicht genug Daten</div>
-                <div class="empty-state-text">Trainiere mindestens 2 Wochen, um eine Volumen-Analyse zu sehen.</div>
-            </div>
-        `;
-    }
-
-    /**
-     * Header
-     */
-    renderHeader() {
-        return `
-            <div style="margin-bottom: 2rem;">
-                <h2 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span>🧠</span>
-                    <span>Intelligente Volumen-Analyse</span>
-                </h2>
-                <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                    KI-gestützte Analyse deines Trainingsvolumens mit personalisierten Empfehlungen
-                </p>
-            </div>
-        `;
+        return analysis;
     }
 
     /**
      * ========================================
-     * 1. TREND-ANALYSE
+     * SETS PRO WOCHE BERECHNEN
      * ========================================
      */
+    calculateWeeklySets(sessions) {
+        const volumeData = {};
 
-    renderTrendAnalysis(sessions) {
-        const weeks = this.groupSessionsByWeek(sessions);
-        const weekData = Object.entries(weeks)
-            .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-            .slice(-8); // Letzte 8 Wochen
+        // Letzte 7 Tage
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        if (weekData.length < 2) {
-            return '';
-        }
+        const recentSessions = sessions.filter(s =>
+            new Date(s.date) >= sevenDaysAgo
+        );
 
-        const weeklyVolumes = weekData.map(([week, sessions]) => ({
-            week,
-            volume: this.calculateTotalVolume(sessions),
-            sessions: sessions.length
-        }));
+        console.log(`📊 Analysiere ${recentSessions.length} Sessions der letzten 7 Tage`);
 
-        // Berechne Trends
-        const avgVolume = weeklyVolumes.reduce((sum, w) => sum + w.volume, 0) / weeklyVolumes.length;
-        const lastWeek = weeklyVolumes[weeklyVolumes.length - 1];
-        const prevWeek = weeklyVolumes[weeklyVolumes.length - 2];
-        const weekChange = ((lastWeek.volume - prevWeek.volume) / prevWeek.volume * 100).toFixed(1);
-
-        // Gesamttrend
-        const firstWeek = weeklyVolumes[0];
-        const totalTrend = ((lastWeek.volume - firstWeek.volume) / firstWeek.volume * 100).toFixed(1);
-
-        return `
-            <div class="analysis-section" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
-                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    <span>📈</span>
-                    <span>Volumen-Trend (${weekData.length} Wochen)</span>
-                </h3>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                    <div class="stat-card">
-                        <div class="stat-card-title">Ø Volumen</div>
-                        <div class="stat-card-value">${this.formatVolume(avgVolume)}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Letzte Woche</div>
-                        <div class="stat-card-value">${this.formatVolume(lastWeek.volume)}</div>
-                        <div style="font-size: 0.85rem; color: ${weekChange > 0 ? 'var(--accent-primary)' : 'var(--accent-danger)'};">
-                            ${weekChange > 0 ? '↗' : '↘'} ${Math.abs(weekChange)}%
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Gesamt-Trend</div>
-                        <div class="stat-card-value" style="color: ${totalTrend > 0 ? 'var(--accent-primary)' : 'var(--accent-danger)'};">
-                            ${totalTrend > 0 ? '+' : ''}${totalTrend}%
-                        </div>
-                    </div>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                    ${weeklyVolumes.map((week, index) => {
-            const prevWeek = index > 0 ? weeklyVolumes[index - 1] : null;
-            const change = prevWeek ? ((week.volume - prevWeek.volume) / prevWeek.volume * 100).toFixed(1) : 0;
-            const isDeload = change < -20;
-
-            return `
-                            <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--bg-primary); border-radius: 8px;">
-                                <div style="flex: 0 0 100px; font-size: 0.9rem; color: var(--text-secondary);">
-                                    Woche ${index + 1}
-                                </div>
-                                <div style="flex: 1; background: var(--bg-secondary); border-radius: 4px; height: 24px; position: relative; overflow: hidden;">
-                                    <div style="background: ${isDeload ? 'var(--accent-info)' : 'var(--accent-primary)'}; height: 100%; width: ${(week.volume / avgVolume * 50).toFixed(0)}%; transition: width 0.3s;"></div>
-                                </div>
-                                <div style="flex: 0 0 100px; text-align: right; font-weight: 500;">
-                                    ${this.formatVolume(week.volume)}
-                                </div>
-                                <div style="flex: 0 0 80px; text-align: right; font-size: 0.85rem; color: ${change > 0 ? 'var(--accent-primary)' : change < -20 ? 'var(--accent-info)' : 'var(--accent-danger)'};">
-                                    ${prevWeek ? `${change > 0 ? '+' : ''}${change}%` : '—'}
-                                    ${isDeload ? ' 📉' : ''}
-                                </div>
-                            </div>
-                        `;
-        }).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * ========================================
-     * 2. MUSKELGRUPPEN-BALANCE
-     * ========================================
-     */
-
-    renderMuscleGroupBalance(sessions) {
-        const muscleGroups = this.getVolumeByMuscleGroup(sessions);
-        const totalVolume = Object.values(muscleGroups).reduce((sum, vol) => sum + vol, 0);
-
-        if (Object.keys(muscleGroups).length === 0) return '';
-
-        // Sortiere nach Volumen
-        const sorted = Object.entries(muscleGroups).sort((a, b) => b[1] - a[1]);
-
-        // Berechne Push/Pull Ratio
-        const pushMuscles = ['Brust', 'Schultern', 'Trizeps'];
-        const pullMuscles = ['Rücken', 'Bizeps'];
-
-        const pushVolume = sorted
-            .filter(([muscle]) => pushMuscles.includes(muscle))
-            .reduce((sum, [_, vol]) => sum + vol, 0);
-
-        const pullVolume = sorted
-            .filter(([muscle]) => pullMuscles.includes(muscle))
-            .reduce((sum, [_, vol]) => sum + vol, 0);
-
-        const pushPullRatio = pullVolume > 0 ? (pushVolume / pullVolume).toFixed(2) : 0;
-
-        // Finde Ungleichgewichte
-        const imbalances = this.detectImbalances(muscleGroups, totalVolume);
-
-        return `
-            <div class="analysis-section" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
-                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    <span>⚖️</span>
-                    <span>Muskelgruppen-Balance</span>
-                </h3>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                    <div class="stat-card">
-                        <div class="stat-card-title">Push/Pull Ratio</div>
-                        <div class="stat-card-value" style="color: ${Math.abs(pushPullRatio - 1) < 0.2 ? 'var(--accent-primary)' : 'var(--accent-warning)'};">
-                            ${pushPullRatio}:1
-                        </div>
-                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                            ${Math.abs(pushPullRatio - 1) < 0.2 ? '✅ Ausgewogen' : '⚠️ Ungleichgewicht'}
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Trainierte Gruppen</div>
-                        <div class="stat-card-value">${sorted.length}</div>
-                    </div>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
-                    ${sorted.map(([muscleGroup, volume]) => {
-            const percentage = ((volume / totalVolume) * 100).toFixed(0);
-            const status = this.getMuscleGroupStatus(muscleGroup, volume, totalVolume);
-
-            return `
-                            <div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
-                                        <span>${muscleGroup}</span>
-                                        <span style="font-size: 0.85rem;">${status.icon}</span>
-                                    </div>
-                                    <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                        ${this.formatVolume(volume)} (${percentage}%)
-                                    </div>
-                                </div>
-                                <div style="background: var(--bg-primary); border-radius: 6px; height: 28px; position: relative; overflow: hidden;">
-                                    <div style="background: ${status.color}; height: 100%; width: ${percentage}%; transition: width 0.3s;"></div>
-                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">
-                                        ${percentage}%
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-        }).join('')}
-                </div>
-
-                ${imbalances.length > 0 ? `
-                    <div style="padding: 1rem; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent-warning);">
-                        <div style="font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span>⚠️</span>
-                            <span>Erkannte Ungleichgewichte:</span>
-                        </div>
-                        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary);">
-                            ${imbalances.map(imbalance => `<li>${imbalance}</li>`).join('')}
-                        </ul>
-                    </div>
-                ` : `
-                    <div style="padding: 1rem; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent-primary);">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span>✅</span>
-                            <span style="font-weight: 500;">Gute Balance zwischen den Muskelgruppen!</span>
-                        </div>
-                    </div>
-                `}
-            </div>
-        `;
-    }
-
-    /**
-     * ========================================
-     * 3. OPTIMALE BEREICHE
-     * ========================================
-     */
-
-    renderOptimalRanges(sessions) {
-        const weeklyVolume = this.getWeeklyVolumeByMuscleGroup(sessions);
-
-        if (Object.keys(weeklyVolume).length === 0) return '';
-
-        return `
-            <div class="analysis-section" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
-                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    <span>🎯</span>
-                    <span>Optimale Volumen-Bereiche</span>
-                </h3>
-
-                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                    ${Object.entries(weeklyVolume).map(([muscleGroup, volume]) => {
-            const optimal = this.optimalRanges[muscleGroup];
-            if (!optimal) return '';
-
-            const status = this.getOptimalRangeStatus(volume, optimal);
-            const percentage = ((volume - optimal.min) / (optimal.max - optimal.min) * 100);
-            const clampedPercentage = Math.max(0, Math.min(100, percentage));
-
-            return `
-                            <div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
-                                        <span>${muscleGroup}</span>
-                                        <span style="font-size: 0.85rem;">${status.icon}</span>
-                                    </div>
-                                    <div style="font-size: 0.9rem; color: ${status.color};">
-                                        ${this.formatVolume(volume)}/Woche
-                                    </div>
-                                </div>
-                                
-                                <div style="position: relative; background: var(--bg-primary); border-radius: 6px; height: 32px; overflow: hidden;">
-                                    <!-- Optimaler Bereich (grün) -->
-                                    <div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: linear-gradient(90deg, transparent 0%, rgba(76, 175, 80, 0.2) 20%, rgba(76, 175, 80, 0.2) 80%, transparent 100%);"></div>
-                                    
-                                    <!-- Aktuelles Volumen -->
-                                    <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${clampedPercentage}%; background: ${status.color}; transition: width 0.3s;"></div>
-                                    
-                                    <!-- Labels -->
-                                    <div style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: var(--text-secondary);">
-                                        ${this.formatVolume(optimal.min)}
-                                    </div>
-                                    <div style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: var(--text-secondary);">
-                                        ${this.formatVolume(optimal.max)}
-                                    </div>
-                                </div>
-                                
-                                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: ${status.color};">
-                                    ${status.text}
-                                </div>
-                            </div>
-                        `;
-        }).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * ========================================
-     * 4. PERIODISIERUNG
-     * ========================================
-     */
-
-    renderPeriodization(sessions) {
-        const weeks = this.groupSessionsByWeek(sessions);
-        const weekData = Object.entries(weeks)
-            .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-            .slice(-8);
-
-        if (weekData.length < 4) return '';
-
-        const weeklyVolumes = weekData.map(([week, sessions]) => ({
-            week,
-            volume: this.calculateTotalVolume(sessions)
-        }));
-
-        // Erkenne Deload-Wochen
-        const deloadWeeks = [];
-        const buildupWeeks = [];
-
-        weeklyVolumes.forEach((week, index) => {
-            if (index === 0) return;
-
-            const prevWeek = weeklyVolumes[index - 1];
-            const change = ((week.volume - prevWeek.volume) / prevWeek.volume * 100);
-
-            if (change < -20) {
-                deloadWeeks.push(index);
-            } else if (change > 5) {
-                buildupWeeks.push(index);
-            }
-        });
-
-        // Berechne Wochen seit letztem Deload
-        const lastDeloadIndex = deloadWeeks.length > 0 ? Math.max(...deloadWeeks) : -1;
-        const weeksSinceDeload = lastDeloadIndex >= 0 ? weeklyVolumes.length - 1 - lastDeloadIndex : weeklyVolumes.length;
-
-        const needsDeload = weeksSinceDeload >= 4;
-
-        return `
-            <div class="analysis-section" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
-                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    <span>📅</span>
-                    <span>Periodisierungs-Analyse</span>
-                </h3>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                    <div class="stat-card">
-                        <div class="stat-card-title">Deload-Wochen</div>
-                        <div class="stat-card-value">${deloadWeeks.length}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                            in ${weeklyVolumes.length} Wochen
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Seit letztem Deload</div>
-                        <div class="stat-card-value" style="color: ${needsDeload ? 'var(--accent-warning)' : 'var(--accent-primary)'};">
-                            ${weeksSinceDeload} Wochen
-                        </div>
-                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                            ${needsDeload ? '⚠️ Deload empfohlen' : '✅ Gut'}
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-title">Aufbau-Wochen</div>
-                        <div class="stat-card-value">${buildupWeeks.length}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                            Progressive Steigerung
-                        </div>
-                    </div>
-                </div>
-
-                ${needsDeload ? `
-                    <div style="padding: 1rem; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent-warning);">
-                        <div style="display: flex; align-items: start; gap: 0.75rem;">
-                            <span style="font-size: 1.5rem;">⚠️</span>
-                            <div>
-                                <div style="font-weight: 500; margin-bottom: 0.5rem;">Deload-Woche empfohlen!</div>
-                                <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                    Du hast ${weeksSinceDeload} Wochen ohne Deload trainiert. 
-                                    Plane nächste Woche eine Deload-Woche ein (60% des normalen Volumens).
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : `
-                    <div style="padding: 1rem; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent-primary);">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span>✅</span>
-                            <span style="font-weight: 500;">Gute Periodisierung! Weiter so!</span>
-                        </div>
-                    </div>
-                `}
-            </div>
-        `;
-    }
-
-    /**
-     * ========================================
-     * 5. WARNUNGEN
-     * ========================================
-     */
-
-    renderWarnings(sessions) {
-        const warnings = this.detectWarnings(sessions);
-
-        if (warnings.length === 0) return '';
-
-        return `
-            <div class="analysis-section" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
-                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    <span>🚨</span>
-                    <span>Warnungen & Hinweise</span>
-                </h3>
-
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                    ${warnings.map(warning => `
-                        <div style="padding: 1rem; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid ${warning.color};">
-                            <div style="display: flex; align-items: start; gap: 0.75rem;">
-                                <span style="font-size: 1.5rem;">${warning.icon}</span>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 500; margin-bottom: 0.5rem; color: ${warning.color};">
-                                        ${warning.title}
-                                    </div>
-                                    <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-                                        ${warning.description}
-                                    </div>
-                                    ${warning.recommendation ? `
-                                        <div style="font-size: 0.9rem; color: var(--text-primary); padding: 0.5rem; background: var(--bg-secondary); border-radius: 4px;">
-                                            💡 ${warning.recommendation}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * ========================================
-     * 6. EMPFEHLUNGEN
-     * ========================================
-     */
-
-    renderRecommendations(sessions) {
-        const recommendations = this.generateRecommendations(sessions);
-
-        if (recommendations.length === 0) return '';
-
-        return `
-            <div class="analysis-section" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
-                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                    <span>💡</span>
-                    <span>Personalisierte Empfehlungen</span>
-                </h3>
-
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                    ${recommendations.map((rec, index) => `
-                        <div style="padding: 1rem; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid var(--accent-primary);">
-                            <div style="display: flex; align-items: start; gap: 0.75rem;">
-                                <div style="flex: 0 0 24px; height: 24px; background: var(--accent-primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem;">
-                                    ${index + 1}
-                                </div>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 500; margin-bottom: 0.5rem;">
-                                        ${rec.title}
-                                    </div>
-                                    <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                                        ${rec.description}
-                                    </div>
-                                    ${rec.action ? `
-                                        <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--accent-primary); font-weight: 500;">
-                                            → ${rec.action}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * ========================================
-     * HILFSMETHODEN - BERECHNUNGEN
-     * ========================================
-     */
-
-    /**
-     * Gruppiere Sessions nach Woche
-     */
-    groupSessionsByWeek(sessions) {
-        const weeks = {};
-
-        sessions.forEach(session => {
-            const date = new Date(session.date);
-            const weekStart = new Date(date);
-            weekStart.setDate(date.getDate() - date.getDay());
-            const weekKey = formatDate(weekStart, 'YYYY-MM-DD');
-
-            if (!weeks[weekKey]) {
-                weeks[weekKey] = [];
-            }
-            weeks[weekKey].push(session);
-        });
-
-        return weeks;
-    }
-
-    /**
-     * Berechne Gesamtvolumen
-     */
-    calculateTotalVolume(sessions) {
-        return sessions.reduce((total, session) => {
-            return total + this.calculateSessionVolume(session);
-        }, 0);
-    }
-
-    /**
-     * Berechne Session-Volumen
-     */
-    calculateSessionVolume(session) {
-        if (!session.exercises) return 0;
-
-        return session.exercises.reduce((total, ex) => {
-            return total + ex.sets.reduce((exTotal, set) => {
-                return set.completed ? exTotal + (set.weight * set.reps) : exTotal;
-            }, 0);
-        }, 0);
-    }
-
-    /**
-     * Volumen nach Muskelgruppen
-     */
-    getVolumeByMuscleGroup(sessions) {
-        const muscleGroups = {};
-
-        sessions.forEach(session => {
+        recentSessions.forEach(session => {
             session.exercises?.forEach(ex => {
                 const exercise = this.store.getExercise(ex.exerciseId);
                 if (!exercise) return;
 
                 const muscle = exercise.muscleGroup;
-                if (!muscleGroups[muscle]) {
-                    muscleGroups[muscle] = 0;
+
+                if (!volumeData[muscle]) {
+                    volumeData[muscle] = {
+                        sets: 0,
+                        volume: 0, // kg
+                        exercises: []
+                    };
                 }
 
+                // Zähle SETS (nur completed)
+                const completedSets = ex.sets.filter(s => s.completed).length;
+                volumeData[muscle].sets += completedSets;
+
+                // Berechne Volumen in kg (nur für Info)
+                let exerciseVolume = 0;
                 ex.sets.forEach(set => {
                     if (set.completed) {
-                        muscleGroups[muscle] += set.weight * set.reps;
+                        volumeData[muscle].volume += set.weight * set.reps;
+                        exerciseVolume += set.weight * set.reps;
                     }
                 });
+
+                // Speichere Übungs-Info
+                volumeData[muscle].exercises.push({
+                    name: exercise.name,
+                    sets: completedSets,
+                    volume: exerciseVolume
+                });
             });
         });
 
-        return muscleGroups;
-    }
-
-    /**
-     * Wöchentliches Volumen nach Muskelgruppen
-     */
-    getWeeklyVolumeByMuscleGroup(sessions) {
-        const weeks = this.groupSessionsByWeek(sessions);
-        const recentWeek = Object.entries(weeks)
-            .sort((a, b) => new Date(b[0]) - new Date(a[0]))[0];
-
-        if (!recentWeek) return {};
-
-        return this.getVolumeByMuscleGroup(recentWeek[1]);
+        return volumeData;
     }
 
     /**
      * ========================================
-     * HILFSMETHODEN - STATUS & ANALYSE
+     * OPTIMALE SET-BEREICHE
+     * ========================================
+     * Basierend auf wissenschaftlichen Empfehlungen
+     */
+    getOptimalSetRanges(profile) {
+        const { experience, frequency } = profile;
+
+        // Basis-Bereiche (Sets pro Woche) für GROSSE Muskelgruppen
+        const baseRanges = {
+            beginner: { min: 10, max: 15 },
+            intermediate: { min: 12, max: 20 },
+            advanced: { min: 15, max: 25 }
+        };
+
+        // Wähle Bereich basierend auf Erfahrung
+        let baseRange = { ...baseRanges[experience] };
+
+        // Anpassung basierend auf Frequenz
+        if (frequency <= 2) {
+            // 2× Training/Woche → Etwas weniger Sets
+            baseRange.min = Math.round(baseRange.min * 0.85);
+            baseRange.max = Math.round(baseRange.max * 0.85);
+        }
+        else if (frequency >= 5) {
+            // 5+ Training/Woche → Etwas mehr Sets möglich
+            baseRange.min = Math.round(baseRange.min * 1.15);
+            baseRange.max = Math.round(baseRange.max * 1.15);
+        }
+
+        // Muskelgruppen-spezifische Bereiche
+        return {
+            // Große Muskelgruppen (100%)
+            'Brust': { ...baseRange },
+            'Rücken': { ...baseRange },
+            'Beine': { ...baseRange },
+
+            // Schultern (80%)
+            'Schultern': {
+                min: Math.round(baseRange.min * 0.8),
+                max: Math.round(baseRange.max * 0.8)
+            },
+
+            // Kleine Muskelgruppen (60%)
+            'Bizeps': {
+                min: Math.round(baseRange.min * 0.6),
+                max: Math.round(baseRange.max * 0.6)
+            },
+            'Trizeps': {
+                min: Math.round(baseRange.min * 0.6),
+                max: Math.round(baseRange.max * 0.6)
+            },
+
+            // Core (70%)
+            'Bauch': {
+                min: Math.round(baseRange.min * 0.7),
+                max: Math.round(baseRange.max * 0.7)
+            },
+
+            // Default
+            'default': { ...baseRange }
+        };
+    }
+
+
+
+    /**
+     * ========================================
+     * RENDERING
      * ========================================
      */
 
-    /**
-     * Muskelgruppen-Status
-     */
-    getMuscleGroupStatus(muscleGroup, volume, totalVolume) {
-        const percentage = (volume / totalVolume) * 100;
+    render(sessions) {
+        // Prüfe Sessions der letzten 7 Tage
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        if (percentage > 40) {
-            return { icon: '⚠️', color: 'var(--accent-warning)' };
-        } else if (percentage < 10) {
-            return { icon: '❌', color: 'var(--accent-danger)' };
-        } else {
-            return { icon: '✅', color: 'var(--accent-primary)' };
+        const recentSessions = sessions.filter(s =>
+            new Date(s.date) >= sevenDaysAgo
+        );
+
+        console.log(`📊 Gefundene Sessions (letzte 7 Tage): ${recentSessions.length}`);
+
+        // Mindestens 1 Session nötig
+        if (recentSessions.length === 0) {
+            return this.renderNoRecentData();
         }
+
+        // Warnung bei wenig Daten (1-2 Sessions)
+        const showWarning = recentSessions.length < 3;
+
+        const analysis = this.analyzeVolume(sessions);
+        const profile = this.getUserProfile();
+
+        return `
+        <div class="volume-analysis-section">
+            ${showWarning ? this.renderDataWarning(recentSessions.length) : ''}
+            ${this.renderProfileInfo(profile)}
+            ${this.renderVolumeByMuscleGroup(analysis)}
+            ${this.renderRecommendations(analysis)}
+            ${this.renderWarnings(analysis)}
+        </div>
+    `;
     }
 
     /**
-     * Optimaler Bereich Status
+     * Keine aktuellen Daten
      */
-    getOptimalRangeStatus(volume, optimal) {
-        if (volume < optimal.min) {
-            const deficit = ((optimal.min - volume) / optimal.min * 100).toFixed(0);
-            return {
-                icon: '❌',
-                color: 'var(--accent-danger)',
-                text: `${deficit}% unter Minimum - Erhöhe das Volumen!`
-            };
-        } else if (volume > optimal.max) {
-            const excess = ((volume - optimal.max) / optimal.max * 100).toFixed(0);
-            return {
-                icon: '⚠️',
-                color: 'var(--accent-warning)',
-                text: `${excess}% über Maximum - Reduziere das Volumen!`
-            };
-        } else {
-            return {
-                icon: '✅',
-                color: 'var(--accent-primary)',
-                text: 'Im optimalen Bereich!'
-            };
-        }
+    renderNoRecentData() {
+        return `
+        <div class="info-card" style="text-align: center; padding: 2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+            <h3>Keine aktuellen Trainingsdaten</h3>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                Du hast in den letzten 7 Tagen nicht trainiert.
+            </p>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                Starte ein Training, um eine Volumen-Analyse zu erhalten!
+            </p>
+        </div>
+    `;
     }
 
     /**
-     * Erkenne Ungleichgewichte
+     * Warnung bei wenig Daten
      */
-    detectImbalances(muscleGroups, totalVolume) {
-        const imbalances = [];
-        const sorted = Object.entries(muscleGroups).sort((a, b) => b[1] - a[1]);
-
-        // Dominante Muskelgruppe
-        if (sorted.length > 0) {
-            const [topMuscle, topVolume] = sorted[0];
-            const topPercentage = (topVolume / totalVolume) * 100;
-
-            if (topPercentage > 40) {
-                imbalances.push(`${topMuscle} dominiert mit ${topPercentage.toFixed(0)}% des Volumens`);
-            }
-        }
-
-        // Untertrainierte Muskelgruppen
-        sorted.forEach(([muscle, volume]) => {
-            const percentage = (volume / totalVolume) * 100;
-            if (percentage < 10) {
-                imbalances.push(`${muscle} ist untertrainiert (nur ${percentage.toFixed(0)}%)`);
-            }
-        });
-
-        // Push/Pull Ungleichgewicht
-        const pushMuscles = ['Brust', 'Schultern', 'Trizeps'];
-        const pullMuscles = ['Rücken', 'Bizeps'];
-
-        const pushVolume = sorted
-            .filter(([muscle]) => pushMuscles.includes(muscle))
-            .reduce((sum, [_, vol]) => sum + vol, 0);
-
-        const pullVolume = sorted
-            .filter(([muscle]) => pullMuscles.includes(muscle))
-            .reduce((sum, [_, vol]) => sum + vol, 0);
-
-        if (pullVolume > 0) {
-            const ratio = pushVolume / pullVolume;
-            if (Math.abs(ratio - 1) > 0.3) {
-                imbalances.push(`Push/Pull Verhältnis unausgeglichen (${ratio.toFixed(2)}:1)`);
-            }
-        }
-
-        return imbalances;
+    renderDataWarning(sessionCount) {
+        return `
+        <div style="background: var(--accent-warning); color: white; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.5rem;">⚠️</span>
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                        Begrenzte Daten
+                    </div>
+                    <div style="font-size: 0.9rem; opacity: 0.9;">
+                        Nur ${sessionCount} Training${sessionCount === 1 ? '' : 's'} in den letzten 7 Tagen gefunden. 
+                        Für genauere Empfehlungen trainiere regelmäßiger.
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
     }
 
     /**
-     * Erkenne Warnungen
+     * Unzureichende Daten (VERALTET - wird nicht mehr verwendet)
      */
-    detectWarnings(sessions) {
-        const warnings = [];
-        const weeks = this.groupSessionsByWeek(sessions);
-        const weekData = Object.entries(weeks)
-            .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-            .slice(-8);
+    renderInsufficientData() {
+        return `
+        <div class="info-card" style="text-align: center; padding: 2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+            <h3>Nicht genug Daten</h3>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                Trainiere mindestens 7 Tage, um eine Volumen-Analyse zu erhalten.
+            </p>
+        </div>
+    `;
+    }
 
-        if (weekData.length < 2) return warnings;
 
-        const weeklyVolumes = weekData.map(([week, sessions]) => ({
-            week,
-            volume: this.calculateTotalVolume(sessions)
-        }));
+    /**
+     * Profil-Info rendern
+     */
+    renderProfileInfo(profile) {
+        const experienceLabels = {
+            beginner: 'Anfänger',
+            intermediate: 'Fortgeschritten',
+            advanced: 'Profi'
+        };
 
-        // Übertraining-Risiko
-        const lastWeek = weeklyVolumes[weeklyVolumes.length - 1];
-        const avgVolume = weeklyVolumes.reduce((sum, w) => sum + w.volume, 0) / weeklyVolumes.length;
+        const goalsLabels = {
+            muscle_building: 'Muskelaufbau',
+            strength: 'Kraftaufbau',
+            endurance: 'Ausdauer',
+            general_fitness: 'Allgemeine Fitness'
+        };
 
-        if (lastWeek.volume > avgVolume * 1.3) {
-            warnings.push({
-                icon: '⚠️',
-                color: 'var(--accent-warning)',
-                title: 'Übertraining-Risiko',
-                description: `Dein Volumen ist ${((lastWeek.volume / avgVolume - 1) * 100).toFixed(0)}% über dem Durchschnitt.`,
-                recommendation: 'Reduziere das Volumen nächste Woche oder plane einen Deload ein.'
-            });
-        }
-
-        // Zu wenig Volumen
-        if (lastWeek.volume < avgVolume * 0.5 && weeklyVolumes.length > 4) {
-            warnings.push({
-                icon: '📉',
-                color: 'var(--accent-info)',
-                title: 'Niedriges Volumen',
-                description: 'Dein aktuelles Volumen ist deutlich unter deinem Durchschnitt.',
-                recommendation: 'Wenn dies kein geplanter Deload ist, erhöhe das Volumen wieder.'
-            });
-        }
-
-        // Lange ohne Deload
-        const deloadWeeks = weeklyVolumes.filter((week, index) => {
-            if (index === 0) return false;
-            const prevWeek = weeklyVolumes[index - 1];
-            return ((week.volume - prevWeek.volume) / prevWeek.volume) < -0.2;
-        });
-
-        const lastDeloadIndex = deloadWeeks.length > 0
-            ? weeklyVolumes.findIndex(w => w === deloadWeeks[deloadWeeks.length - 1])
-            : -1;
-
-        const weeksSinceDeload = lastDeloadIndex >= 0
-            ? weeklyVolumes.length - 1 - lastDeloadIndex
-            : weeklyVolumes.length;
-
-        if (weeksSinceDeload >= 5) {
-            warnings.push({
-                icon: '🚨',
-                color: 'var(--accent-danger)',
-                title: 'Deload überfällig',
-                description: `Du hast ${weeksSinceDeload} Wochen ohne Deload trainiert.`,
-                recommendation: 'Plane DRINGEND eine Deload-Woche ein (60% des normalen Volumens).'
-            });
-        }
-
-        return warnings;
+        return `
+            <div class="profile-info-card" style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem;">👤 Dein Profil</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                    <div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Erfahrung</div>
+                        <div style="font-weight: 600;">${experienceLabels[profile.experience]}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Häufigkeit</div>
+                        <div style="font-weight: 600;">${profile.frequency}× pro Woche</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Ziel</div>
+                        <div style="font-weight: 600;">${goalsLabels[profile.goals]}</div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     /**
-     * Generiere Empfehlungen
+     * Volumen nach Muskelgruppen rendern
      */
-    generateRecommendations(sessions) {
+    renderVolumeByMuscleGroup(analysis) {
+        const muscles = Object.keys(analysis).sort();
+
+        if (muscles.length === 0) {
+            return '<p>Keine Daten verfügbar.</p>';
+        }
+
+        return `
+            <div class="stats-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem;">💪 Wöchentliches Volumen (Sets)</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    ${muscles.map(muscle => {
+            const data = analysis[muscle];
+            const percentage = ((data.currentSets / data.optimalMax) * 100);
+            const isLow = data.status === 'low';
+            const isHigh = data.status === 'high';
+            const isOptimal = data.status === 'optimal';
+
+            // Farbe basierend auf Status
+            let barColor = 'var(--accent-success)'; // Grün
+            if (isLow) barColor = 'var(--accent-warning)'; // Orange
+            if (isHigh) barColor = 'var(--accent-danger)'; // Rot
+
+            return `
+                            <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${barColor};">
+                                <!-- Header -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                    <div>
+                                        <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem;">
+                                            ${muscle}
+                                        </div>
+                                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                            ${data.currentSets} Sets/Woche
+                                            <span style="color: var(--text-tertiary); margin-left: 0.5rem;">
+                                                (${this.formatVolume(data.currentVolume)})
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">Optimal</div>
+                                        <div style="font-weight: 600; color: var(--accent-primary);">
+                                            ${data.optimalMin}-${data.optimalMax} Sets
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Progress Bar -->
+                                <div style="background: var(--bg-tertiary); border-radius: 8px; height: 12px; position: relative; overflow: hidden; margin-bottom: 1rem;">
+                                    <!-- Optimal Range Marker -->
+                                    <div style="position: absolute; left: ${(data.optimalMin / data.optimalMax) * 100}%; right: 0; height: 100%; background: rgba(76, 175, 80, 0.2);"></div>
+                                    
+                                    <!-- Current Volume Bar -->
+                                    <div style="background: ${barColor}; height: 100%; width: ${Math.min(percentage, 100)}%; transition: width 0.3s ease;"></div>
+                                </div>
+
+                                <!-- Status & Empfehlung -->
+                                <div style="display: flex; align-items: start; gap: 0.75rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
+                                    <span style="font-size: 1.5rem;">
+                                        ${isOptimal ? '✅' : isLow ? '📈' : '⚠️'}
+                                    </span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 500; margin-bottom: 0.25rem;">
+                                            ${data.recommendation.message}
+                                        </div>
+                                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                            ${data.recommendation.detail}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Übungen Details (ausklappbar) -->
+                                ${data.exercises && data.exercises.length > 0 ? `
+                                    <details style="margin-top: 1rem;">
+                                        <summary style="cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); padding: 0.5rem;">
+                                            📋 Übungen anzeigen (${data.exercises.length})
+                                        </summary>
+                                        <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-primary); border-radius: 6px;">
+                                            ${data.exercises.map(ex => `
+                                                <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">
+                                                    <span>${ex.name}</span>
+                                                    <span style="color: var(--text-secondary);">
+                                                        ${ex.sets} Sets · ${this.formatVolume(ex.volume)}
+                                                    </span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </details>
+                                ` : ''}
+                            </div>
+                        `;
+        }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Empfehlungen rendern
+     */
+    renderRecommendations(analysis) {
         const recommendations = [];
-        const muscleGroups = this.getVolumeByMuscleGroup(sessions);
-        const weeklyVolume = this.getWeeklyVolumeByMuscleGroup(sessions);
-        const totalVolume = Object.values(muscleGroups).reduce((sum, vol) => sum + vol, 0);
 
-        // Muskelgruppen-Empfehlungen
-        Object.entries(weeklyVolume).forEach(([muscle, volume]) => {
-            const optimal = this.optimalRanges[muscle];
-            if (!optimal) return;
-
-            if (volume < optimal.min) {
-                const needed = optimal.min - volume;
+        Object.entries(analysis).forEach(([muscle, data]) => {
+            if (data.status === 'low') {
                 recommendations.push({
-                    title: `Erhöhe ${muscle}-Volumen`,
-                    description: `Aktuell: ${this.formatVolume(volume)}/Woche. Optimal: ${this.formatVolume(optimal.min)}-${this.formatVolume(optimal.max)}/Woche.`,
-                    action: `Füge ${this.formatVolume(needed)} mehr Volumen hinzu (ca. 1-2 Übungen)`
-                });
-            } else if (volume > optimal.max) {
-                const excess = volume - optimal.max;
-                recommendations.push({
-                    title: `Reduziere ${muscle}-Volumen`,
-                    description: `Aktuell: ${this.formatVolume(volume)}/Woche. Du trainierst zu viel!`,
-                    action: `Reduziere um ${this.formatVolume(excess)} (ca. 1-2 Übungen weniger)`
+                    muscle,
+                    type: 'increase',
+                    priority: 'high',
+                    message: data.recommendation.message,
+                    detail: data.recommendation.detail
                 });
             }
         });
 
-        // Periodisierungs-Empfehlung
-        const weeks = this.groupSessionsByWeek(sessions);
-        const weekData = Object.entries(weeks)
-            .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-            .slice(-8);
-
-        if (weekData.length >= 4) {
-            const weeklyVolumes = weekData.map(([week, sessions]) => ({
-                volume: this.calculateTotalVolume(sessions)
-            }));
-
-            const deloadWeeks = weeklyVolumes.filter((week, index) => {
-                if (index === 0) return false;
-                const prevWeek = weeklyVolumes[index - 1];
-                return ((week.volume - prevWeek.volume) / prevWeek.volume) < -0.2;
-            });
-
-            const weeksSinceDeload = deloadWeeks.length > 0
-                ? weeklyVolumes.length - 1 - weeklyVolumes.findIndex(w => w === deloadWeeks[deloadWeeks.length - 1])
-                : weeklyVolumes.length;
-
-            if (weeksSinceDeload >= 3) {
-                recommendations.push({
-                    title: 'Plane einen Deload ein',
-                    description: `Du hast ${weeksSinceDeload} Wochen ohne Deload trainiert.`,
-                    action: 'Nächste Woche: 60% des normalen Volumens, gleiche Übungen'
-                });
-            }
+        if (recommendations.length === 0) {
+            return `
+                <div class="stats-section" style="margin-bottom: 2rem;">
+                    <h3 style="margin-bottom: 1rem;">💡 Empfehlungen</h3>
+                    <div style="padding: 2rem; text-align: center; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--accent-success);">
+                        <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎯</div>
+                        <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent-success);">
+                            Perfekt! Alle Muskelgruppen im optimalen Bereich!
+                        </div>
+                        <div style="margin-top: 0.5rem; color: var(--text-secondary);">
+                            Halte dein aktuelles Trainingsvolumen bei.
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
-        // Limitiere auf Top 5
-        return recommendations.slice(0, 5);
+        return `
+            <div class="stats-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem;">💡 Empfehlungen</h3>
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    ${recommendations.map(rec => `
+                        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; border-left: 4px solid var(--accent-warning);">
+                            <div style="display: flex; align-items: start; gap: 1rem;">
+                                <span style="font-size: 2rem;">📈</span>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; margin-bottom: 0.5rem;">
+                                        ${rec.muscle}
+                                    </div>
+                                    <div style="margin-bottom: 0.25rem;">
+                                        ${rec.message}
+                                    </div>
+                                    <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                        ${rec.detail}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Allgemeine Tipps -->
+                <div style="margin-top: 1.5rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px; border-left: 4px solid var(--accent-info);">
+                    <div style="display: flex; align-items: start; gap: 1rem;">
+                        <span style="font-size: 2rem;">💡</span>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">Tipps zur Volumen-Steigerung</div>
+                            <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary);">
+                                <li>Steigere das Volumen schrittweise (1-2 Sets pro Woche)</li>
+                                <li>Achte auf ausreichende Regeneration zwischen den Trainings</li>
+                                <li>Priorisiere Übungen, die mehrere Muskelgruppen ansprechen</li>
+                                <li>Erhöhe erst das Volumen, dann die Intensität</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Warnungen rendern
+     */
+    renderWarnings(analysis) {
+        const warnings = [];
+
+        Object.entries(analysis).forEach(([muscle, data]) => {
+            if (data.warning) {
+                warnings.push({
+                    muscle,
+                    ...data.warning
+                });
+            }
+        });
+
+        if (warnings.length === 0) {
+            return '';
+        }
+
+        return `
+            <div class="stats-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem;">⚠️ Warnungen</h3>
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    ${warnings.map(warning => {
+            const isHighRisk = warning.risk === 'high';
+            const borderColor = isHighRisk ? 'var(--accent-danger)' : 'var(--accent-warning)';
+
+            return `
+                            <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${borderColor};">
+                                <div style="display: flex; align-items: start; gap: 1rem;">
+                                    <span style="font-size: 2rem;">${isHighRisk ? '🚨' : '⚠️'}</span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; margin-bottom: 0.5rem; color: ${borderColor};">
+                                            ${warning.muscle} - ${warning.message}
+                                        </div>
+                                        <div style="margin-bottom: 0.5rem;">
+                                            ${warning.detail}
+                                        </div>
+                                        <div style="font-size: 0.9rem; color: var(--text-secondary); padding: 1rem; background: var(--bg-primary); border-radius: 6px; margin-top: 0.5rem;">
+                                            <strong>Risiken bei zu viel Volumen:</strong>
+                                            <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+                                                <li>Übertraining und Leistungsabfall</li>
+                                                <li>Erhöhtes Verletzungsrisiko</li>
+                                                <li>Längere Regenerationszeiten</li>
+                                                <li>Stagnation oder Rückschritte</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+        }).join('')}
+                </div>
+            </div>
+        `;
     }
 
     /**
      * ========================================
-     * HILFSMETHODEN - FORMATIERUNG
+     * HELPER FUNKTIONEN
      * ========================================
      */
 
     /**
-     * Formatiere Volumen
+     * Volumen formatieren (kg)
      */
     formatVolume(volume) {
         if (volume >= 1000) {
             return `${(volume / 1000).toFixed(1)}k kg`;
         }
-        return `${formatNumber(volume)} kg`;
+        return `${Math.round(volume)} kg`;
     }
-}
 
+}
 
 
 
